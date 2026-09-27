@@ -35,6 +35,9 @@ export default function Navbar() {
         >
           Contact
         </span>
+        <span onClick={() => router.push('/about')} className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors">
+  About
+</span>
         {/* Booking Button */}
         <button 
           onClick={() => router.push('/booking')} 
