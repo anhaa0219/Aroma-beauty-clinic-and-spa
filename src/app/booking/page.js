@@ -20,7 +20,14 @@ export default function BookingStepOne() {
   };
 
   return (
+    
     <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
+        <button 
+  onClick={() => router.back()} 
+  className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
+>
+  &larr; Back
+</button>
       <h1 className="text-4xl font-extrabold tracking-tight mb-10 text-primary text-center">
         Book Your Appointment
       </h1>

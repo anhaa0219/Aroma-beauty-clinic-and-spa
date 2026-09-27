@@ -1,165 +1,167 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { servicesList, staffList } from '@/lib/data';
 
 function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
+  // Retrieve all data passed from previous steps
   const serviceId = searchParams.get('serviceId');
   const staffId = searchParams.get('staffId');
   const date = searchParams.get('date');
   const time = searchParams.get('time');
 
+  // Look up the full details for display
   const service = servicesList.find(s => s.id === serviceId);
   const staff = staffList.find(s => s.id === staffId);
 
-  // New state variables for real API data
-  const [isGenerating, setIsGenerating] = useState(true);
-  const [qrData, setQrData] = useState(null);
-  const [apiMessage, setApiMessage] = useState("");
+  // Form state for customer details
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    // We only want this to run once when the page loads
-    if (!service) return;
+  const handleSimulatePayment = async () => {
+    setIsSubmitting(true);
 
-    async function generateQPayInvoice() {
-      try {
-        // 1. Call our new secure backend API
-        const response = await fetch('/api/qpay/invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: service.price,
-            serviceName: service.name
-          })
-        });
+    const bookingData = {
+      customerName,
+      customerPhone,
+      serviceId,
+      serviceName: service?.name || 'Unknown Service',
+      staffId,
+      staffName: staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown Staff',
+      date,
+      time,
+      price: service?.price || 0,
+    };
 
-        const data = await response.json();
+    try {
+      // Send the data to your MongoDB API
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData),
+      });
 
-        if (data.success) {
-          // 2. If successful, save the real QR code to state!
-          setQrData({
-            qr_image: data.qr_image,
-            invoice_id: data.invoice_id
-          });
-          setApiMessage("Scan to pay");
-        } else {
-          throw new Error(data.message);
-        }
-      } catch (error) {
-        console.error("API call failed:", error);
-        // 3. Fallback for MVP testing since we don't have real credentials yet
-        setApiMessage("Preview Mode: Waiting for real QPay keys");
-      } finally {
-        setIsGenerating(false);
+      if (res.ok) {
+        // Payment successful, redirect to a success page or home
+        alert("Payment successful! Your appointment is booked.");
+        router.push('/');
+      } else {
+        alert("Something went wrong with the booking.");
       }
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    generateQPayInvoice();
-  }, [service]);
-
-  const handleSimulatePayment = () => {
-    router.push(`/booking/success?serviceId=${serviceId}&staffId=${staffId}&date=${date}&time=${time}`);
   };
 
-  if (!service || !staff || !date || !time) {
+  // If someone navigates here without selecting a service first
+  if (!serviceId || !date) {
     return (
-      <div className="text-center py-20 text-foreground">
-        <h2 className="text-2xl font-bold text-primary mb-4">Missing booking details</h2>
-        <button onClick={() => router.push('/booking')} className="text-primary underline">Start over</button>
+      <div className="max-w-4xl mx-auto py-12 px-4 text-center">
+        <p className="text-xl text-primary mb-4">Missing booking details.</p>
+        <button onClick={() => router.push('/booking')} className="text-primary underline">Start Over</button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 text-foreground flex flex-col md:flex-row gap-8">
-      
-      {/* --- LEFT SIDE: THE RECEIPT --- */}
-      <div className="w-full md:w-1/2">
-        <h1 className="text-3xl font-extrabold tracking-tight mb-6 text-primary">
-          Review & Pay
-        </h1>
-        <div className="border border-border bg-card p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-bold border-b border-border pb-4 mb-4 text-primary">Appointment Details</h2>
-          
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Service</span>
-              <span className="font-semibold text-right">{service.name}</span>
+    <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
+      <button 
+        onClick={() => router.back()} 
+        className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
+      >
+        &larr; Back
+      </button>
+
+      <h1 className="text-4xl font-extrabold tracking-tight mb-10 text-primary text-center">
+        Finalize & Pay
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        
+        {/* --- 1. CUSTOMER DETAILS FORM --- */}
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-primary">Your Details</h2>
+          <div className="bg-card border border-border p-6 rounded-xl shadow-sm space-y-6">
+            <div>
+              <label className="block text-sm font-bold mb-2 text-foreground">Full Name</label>
+              <input 
+                type="text" 
+                placeholder="e.g., Ankhbayar M."
+                className="w-full border border-border rounded-md p-3 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Specialist</span>
-              <span className="font-semibold text-right">{staff.firstName} {staff.lastName}</span>
+            <div>
+              <label className="block text-sm font-bold mb-2 text-foreground">Phone Number</label>
+              <input 
+                type="tel" 
+                placeholder="e.g., 99887766"
+                className="w-full border border-border rounded-md p-3 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Date</span>
-              <span className="font-semibold text-right">{date}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Time</span>
-              <span className="font-semibold text-right">{time}</span>
-            </div>
-          </div>
-          
-          <div className="border-t border-border pt-4 flex justify-between items-center">
-            <span className="text-lg font-bold text-primary">Total to Pay</span>
-            <span className="text-2xl font-extrabold text-primary">₮{service.price.toLocaleString()}</span>
           </div>
         </div>
-      </div>
 
-      {/* --- RIGHT SIDE: QPAY UI --- */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center border border-border bg-card p-8 rounded-lg shadow-sm">
-        <h2 className="text-xl font-bold text-primary mb-2">Pay with QPay</h2>
-        <p className="text-sm text-muted-foreground mb-8 text-center">
-          {apiMessage || "Connecting to secure payment gateway..."}
-        </p>
-
-        {isGenerating ? (
-          <div className="w-64 h-64 bg-muted animate-pulse flex items-center justify-center rounded-lg border border-border">
-            <span className="text-muted-foreground text-sm font-medium">Generating Invoice...</span>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            
-            {/* REAL QR CODE RENDERER */}
-            <div className="w-64 h-64 bg-white border-2 border-primary p-4 rounded-lg flex flex-col items-center justify-center mb-6 shadow-md overflow-hidden">
-              {qrData?.qr_image ? (
-                // If we got a real image from QPay, show it!
-                <img src={`data:image/png;base64,${qrData.qr_image}`} alt="QPay QR Code" className="w-full h-full object-contain" />
-              ) : (
-                // Fallback dummy QR code
-                <div className="w-full h-full border-4 border-dashed border-muted-foreground flex items-center justify-center bg-gray-50">
-                  <span className="font-bold text-muted-foreground text-center px-2">
-                    Dummy QR<br/><span className="text-xs font-normal">(Needs real QPay keys)</span>
-                  </span>
-                </div>
-              )}
+        {/* --- 2. ORDER SUMMARY & PAYMENT --- */}
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-primary">Order Summary</h2>
+          <div className="bg-primary/5 border border-primary/20 p-6 rounded-xl shadow-sm mb-6">
+            <div className="space-y-3 mb-6 pb-6 border-b border-primary/10">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Service:</span>
+                <span className="font-medium">{service?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Specialist:</span>
+                <span className="font-medium">{staff?.firstName} {staff?.lastName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date:</span>
+                <span className="font-medium">{date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Time:</span>
+                <span className="font-medium">{time}</span>
+              </div>
             </div>
             
-            <p className="text-sm text-muted-foreground mb-6 animate-pulse">Waiting for payment confirmation...</p>
-            
-            {/* MVP TEST BUTTON */}
-            <button 
-              onClick={handleSimulatePayment}
-              className="bg-primary text-primary-foreground px-6 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              [TEST] Simulate Successful Payment
-            </button>
+            <div className="flex justify-between items-center text-xl font-extrabold text-primary">
+              <span>Total to Pay:</span>
+              <span>₮{service?.price.toLocaleString()}</span>
+            </div>
           </div>
-        )}
-      </div>
 
+          <button
+            onClick={handleSimulatePayment}
+            disabled={!customerName || !customerPhone || isSubmitting}
+            className={`w-full py-4 rounded-md text-lg font-bold transition-all shadow-md ${
+              customerName && customerPhone && !isSubmitting
+                ? 'bg-primary text-primary-foreground hover:opacity-90'
+                : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'
+            }`}
+          >
+            {isSubmitting ? 'Processing...' : 'Pay with QPay'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-export default function BookingStepThree() {
+export default function PaymentPage() {
   return (
-    <Suspense fallback={<div className="text-center py-20">Loading Checkout...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-primary">Loading...</div>}>
       <PaymentContent />
     </Suspense>
   );

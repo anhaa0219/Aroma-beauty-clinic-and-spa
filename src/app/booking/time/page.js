@@ -2,99 +2,110 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { servicesList, staffList } from '@/lib/data';
 
-// We wrap the main logic in a component to safely use useSearchParams in Next.js
-function TimeSelectionContent() {
+// Standard salon working hours
+const ALL_TIME_SLOTS = [
+  "10:00", "11:00", "12:00", "13:00", 
+  "14:00", "15:00", "16:00", "17:00", "18:00"
+];
+
+function BookingTimeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  // 1. Get the choices from the URL
+
+  // Grab the selections from Step 1
   const serviceId = searchParams.get('serviceId');
   const staffId = searchParams.get('staffId');
 
-  // Find the actual data objects
-  const service = servicesList.find(s => s.id === serviceId);
-  const staff = staffList.find(s => s.id === staffId);
-
-  // 2. React state for Date and Time
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState(null);
 
-  // Hardcoded dummy time slots for the MVP
-  // Later, you will calculate these based on staff.schedule and booked appointments
-  const availableSlots = ["10:00", "10:30", "11:00", "12:00", "13:30", "14:00", "15:00", "16:30", "17:00"];
+  // MOCK BACKEND DATA: 
+  // Once your API is connected, you will fetch all bookings for `selectedDate` 
+  // and extract their times into this array. For now, 13:00 and 14:00 are simulated as "Occupied".
+  const occupiedTimes = ["13:00", "14:00"];
 
   const handleContinue = () => {
     if (selectedDate && selectedTime) {
-      // Pass EVERYTHING to the final payment page
-      router.push(`/booking/payment?serviceId=${serviceId}&staffId=${staffId}&date=${selectedDate}&time=${selectedTime}`);
+      // Pass all selections to the final customer details page
+      router.push(`/booking/customer?serviceId=${serviceId}&staffId=${staffId}&date=${selectedDate}&time=${selectedTime}`);
     }
   };
 
-  // Prevent crashing if someone visits this page directly without selecting a service first
-  if (!service || !staff) {
-    return (
-      <div className="text-center py-20 text-foreground">
-        <h2 className="text-2xl font-bold text-primary mb-4">No service selected</h2>
-        <button onClick={() => router.push('/booking')} className="text-primary underline">Go back to step 1</button>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 text-foreground">
-      <h1 className="text-3xl font-extrabold tracking-tight mb-8 text-primary text-center">
-        Choose Date & Time
+    <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
+      {/* Universal Back Button */}
+      <button 
+        onClick={() => router.back()} 
+        className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
+      >
+        &larr; Back
+      </button>
+
+      <h1 className="text-4xl font-extrabold tracking-tight mb-10 text-primary text-center">
+        Select Date & Time
       </h1>
 
-      {/* --- SUMMARY CARD --- */}
-      <div className="bg-muted/30 border border-border p-6 rounded-lg mb-8 flex justify-between items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
+        {/* --- 1. DATE SELECTION --- */}
         <div>
-          <p className="text-sm text-muted-foreground mb-1">You are booking:</p>
-          <p className="font-bold text-lg text-primary">{service.name}</p>
-          <p className="text-sm text-foreground">with {staff.firstName} {staff.lastName}</p>
-        </div>
-        <div className="text-right">
-          <p className="font-bold text-xl text-primary">₮{service.price.toLocaleString()}</p>
-          <p className="text-sm text-muted-foreground">{service.durationMinutes} mins</p>
-        </div>
-      </div>
-
-      {/* --- DATE PICKER --- */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4 text-primary">1. Select a Date</h2>
-        <input 
-          type="date" 
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          // Prevent picking past dates
-          min={new Date().toISOString().split('T')[0]}
-          className="w-full md:w-1/2 p-3 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-        />
-      </div>
-
-      {/* --- TIME SLOTS GRID --- */}
-      {selectedDate && (
-        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-xl font-bold mb-4 text-primary">2. Select a Time</h2>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-            {availableSlots.map((time) => (
-              <button
-                key={time}
-                onClick={() => setSelectedTime(time)}
-                className={`py-3 rounded-md font-medium transition-all ${
-                  selectedTime === time
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'bg-card border border-border text-foreground hover:border-primary/50 hover:bg-primary/5'
-                }`}
-              >
-                {time}
-              </button>
-            ))}
+          <h2 className="text-2xl font-bold mb-6 text-primary">1. Choose a Date</h2>
+          <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
+            <input 
+              type="date" 
+              className="w-full border border-border rounded-md p-4 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none cursor-pointer text-lg"
+              value={selectedDate}
+              // Prevent selecting dates in the past
+              min={new Date().toISOString().split('T')[0]}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setSelectedTime(null); // Reset time if they change the date
+              }}
+            />
+            {!selectedDate && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Please select a date to check availability.
+              </p>
+            )}
           </div>
         </div>
-      )}
+
+        {/* --- 2. TIME SELECTION --- */}
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-primary">2. Choose a Time</h2>
+          <div className="bg-card border border-border p-6 rounded-xl shadow-sm min-h-[300px]">
+            {!selectedDate ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Select a date first
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {ALL_TIME_SLOTS.map((time) => {
+                  const isOccupied = occupiedTimes.includes(time);
+                  const isSelected = selectedTime === time;
+
+                  return (
+                    <button
+                      key={time}
+                      disabled={isOccupied}
+                      onClick={() => setSelectedTime(time)}
+                      className={`py-3 rounded-md text-sm font-bold transition-all border ${
+                        isOccupied
+                          ? 'bg-muted text-muted-foreground border-transparent cursor-not-allowed opacity-50' // Disabled styling
+                          : isSelected
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md' // Selected styling
+                            : 'bg-background text-foreground border-border hover:border-primary hover:text-primary' // Available styling
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* --- CONTINUE BUTTON --- */}
       <div className="flex justify-end border-t border-border pt-8">
@@ -103,22 +114,21 @@ function TimeSelectionContent() {
           disabled={!selectedDate || !selectedTime}
           className={`px-8 py-3 rounded-md text-lg font-medium transition-all ${
             selectedDate && selectedTime
-              ? 'bg-primary text-primary-foreground hover:opacity-90'
+              ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-md'
               : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'
           }`}
         >
-          Confirm & Pay
+          Continue to Details
         </button>
       </div>
     </div>
   );
 }
 
-// Next.js requires this wrapper for client components reading URL params
-export default function BookingStepTwo() {
+export default function BookingTimePage() {
   return (
-    <Suspense fallback={<div className="text-center py-20">Loading...</div>}>
-      <TimeSelectionContent />
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-primary">Loading calendar...</div>}>
+      <BookingTimeContent />
     </Suspense>
   );
 }
