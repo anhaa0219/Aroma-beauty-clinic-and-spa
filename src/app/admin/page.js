@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react';
 export default function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // NEW: State to control which bookings are visible. Defaults to showing only active ones.
+  const [filter, setFilter] = useState('Active'); 
 
-  // Fetch all bookings on load
   useEffect(() => {
     fetchBookings();
   }, []);
@@ -35,7 +37,6 @@ export default function AdminDashboard() {
       const data = await res.json();
       
       if (data.success) {
-        // Update the UI immediately
         setBookings(bookings.map(b => b.orderId === orderId ? { ...b, status: newStatus } : b));
       } else {
         alert(data.error);
@@ -45,11 +46,37 @@ export default function AdminDashboard() {
     }
   };
 
+  // NEW: Filter the bookings array before we draw the table
+  const filteredBookings = bookings.filter((booking) => {
+    if (filter === 'Active') return booking.status === 'Confirmed';
+    if (filter === 'Completed') return booking.status === 'Completed';
+    if (filter === 'Cancelled') return booking.status === 'Cancelled';
+    return true; // 'All' shows everything
+  });
+
   if (loading) return <div className="p-10 text-center text-primary">Loading dashboard...</div>;
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 text-foreground">
-      <h1 className="text-3xl font-bold mb-8 text-primary">Aroma Spa Admin</h1>
+      
+      {/* HEADER & FILTER BAR */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+        <h1 className="text-3xl font-bold text-primary">Aroma Spa Admin</h1>
+        
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-semibold text-muted-foreground">Show:</label>
+          <select 
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)}
+            className="border border-border bg-card text-foreground rounded-md p-2 outline-none focus:ring-2 focus:ring-primary shadow-sm"
+          >
+            <option value="Active">Active (Confirmed)</option>
+            <option value="Completed">Completed History</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="All">All Appointments</option>
+          </select>
+        </div>
+      </div>
       
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[800px]">
@@ -64,14 +91,15 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {bookings.length === 0 ? (
+            {/* We map over filteredBookings instead of all bookings */}
+            {filteredBookings.length === 0 ? (
               <tr>
                 <td colSpan="6" className="p-8 text-center text-muted-foreground">
-                  No bookings found.
+                  No {filter.toLowerCase()} bookings found.
                 </td>
               </tr>
             ) : (
-              bookings.map((booking) => (
+              filteredBookings.map((booking) => (
                 <tr key={booking._id} className="border-b border-border hover:bg-muted/30">
                   <td className="p-4 text-sm font-mono text-muted-foreground">{booking.orderId}</td>
                   <td className="p-4 text-sm">
@@ -85,6 +113,7 @@ export default function AdminDashboard() {
                   <td className="p-4 text-sm text-foreground">{booking.staffName}</td>
                   <td className="p-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      booking.status === 'Completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                       booking.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 
                       booking.status === 'Cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 
                       'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
@@ -93,14 +122,23 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="p-4 text-sm space-x-2">
-                    {booking.status !== 'Cancelled' && (
-                      <button 
-                        onClick={() => updateStatus(booking.orderId, 'Cancelled')}
-                        className="px-3 py-1 bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 dark:bg-red-950 dark:border-red-800 dark:hover:bg-red-900 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    {booking.status === 'Confirmed' && (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => updateStatus(booking.orderId, 'Completed')}
+                          className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 dark:bg-blue-950 dark:border-blue-800 dark:hover:bg-blue-900 transition-colors"
+                        >
+                          Complete
+                        </button>
+                        <button 
+                          onClick={() => updateStatus(booking.orderId, 'Cancelled')}
+                          className="px-3 py-1 bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 dark:bg-red-950 dark:border-red-800 dark:hover:bg-red-900 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     )}
+
                     {booking.status === 'Cancelled' && (
                       <button 
                         onClick={() => updateStatus(booking.orderId, 'Confirmed')}
@@ -108,6 +146,10 @@ export default function AdminDashboard() {
                       >
                         Restore
                       </button>
+                    )}
+
+                    {booking.status === 'Completed' && (
+                      <span className="text-muted-foreground italic text-xs ml-2">Finished ✓</span>
                     )}
                   </td>
                 </tr>
