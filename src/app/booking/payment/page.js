@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { servicesList, staffList } from '@/lib/data';
+import Navbar from '@/components/layout/Navbar';
 
 function PaymentContent() {
   const router = useRouter();
@@ -46,12 +47,15 @@ function PaymentContent() {
         body: JSON.stringify(bookingData),
       });
 
-      if (res.ok) {
-        // Payment successful, redirect to a success page or home
-        alert("Payment successful! Your appointment is booked.");
-        router.push('/');
+      // Parse the JSON response from the database
+      const data = await res.json();
+
+      if (data.success && data.data?.orderId) {
+        // SUCCESS: Redirect to the new confirmation page with the order ID
+        router.push(`/booking/success?orderId=${data.data.orderId}`);
       } else {
-        alert("Something went wrong with the booking.");
+        // FAIL: Show the specific error (e.g., time slot already booked)
+        alert(data.error || "Something went wrong with the booking.");
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -72,7 +76,10 @@ function PaymentContent() {
   }
 
   return (
+    <div className='w-full flex flex-col'>
+       <Navbar/>
     <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
+     
       <button 
         onClick={() => router.back()} 
         className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
@@ -155,6 +162,7 @@ function PaymentContent() {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

@@ -1,100 +1,121 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
-// Dummy data for the MVP so the owner can see how it will look
-const mockBookings = [
-  { id: "ORD-001", customer: "Nomin-Erdene", phone: "99887766", service: "Эмэгтэй үс тайралт", staff: "Anu", date: "2026-09-28", time: "10:00", status: "Paid" },
-  { id: "ORD-002", customer: "Khulan", phone: "88990011", service: "Энгийн маникюр", staff: "Saraa", date: "2026-09-28", time: "13:30", status: "Pending" },
-  { id: "ORD-003", customer: "Gerel", phone: "77665544", service: "Бүтэн биеийн массаж", staff: "Saraa", date: "2026-09-29", time: "15:00", status: "Paid" },
-];
+import { useEffect, useState } from 'react';
 
 export default function AdminDashboard() {
-  const router = useRouter();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch all bookings on load
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    try {
+      const res = await fetch('/api/admin/bookings');
+      const data = await res.json();
+      if (data.success) {
+        setBookings(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (orderId, newStatus) => {
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        // Update the UI immediately
+        setBookings(bookings.map(b => b.orderId === orderId ? { ...b, status: newStatus } : b));
+      } else {
+        alert(data.error);
+      }
+    } catch (error) {
+      alert('Failed to update status');
+    }
+  };
+
+  if (loading) return <div className="p-10 text-center text-primary">Loading dashboard...</div>;
 
   return (
-    <div className="min-h-screen bg-muted/20 p-8 text-foreground">
+    <div className="max-w-7xl mx-auto py-12 px-4 text-foreground">
+      <h1 className="text-3xl font-bold mb-8 text-primary">Aroma Spa Admin</h1>
       
-      {/* Admin Header */}
-      <div className="max-w-6xl mx-auto flex justify-between items-center mb-10">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-primary">Salon Admin</h1>
-          <p className="text-muted-foreground mt-1">Manage your daily appointments</p>
-        </div>
-        <button 
-          onClick={() => router.push('/')}
-          className="px-4 py-2 border border-border bg-card rounded-md text-sm font-medium hover:bg-muted transition-colors"
-        >
-          View Live Website
-        </button>
-      </div>
-
-      {/* Dashboard Stats */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-primary text-primary-foreground p-6 rounded-lg shadow-sm">
-          {/* FIXED: Used &apos; instead of an apostrophe */}
-          <p className="text-sm font-medium opacity-90">Today&apos;s Appointments</p>
-          <p className="text-4xl font-extrabold mt-2">12</p>
-        </div>
-        <div className="bg-card border border-border p-6 rounded-lg shadow-sm">
-          <p className="text-sm font-medium text-muted-foreground">Pending Payments</p>
-          <p className="text-4xl font-extrabold text-primary mt-2">3</p>
-        </div>
-        <div className="bg-card border border-border p-6 rounded-lg shadow-sm">
-          <p className="text-sm font-medium text-muted-foreground">Total Revenue (Today)</p>
-          <p className="text-4xl font-extrabold text-primary mt-2">₮450,000</p>
-        </div>
-      </div>
-
-      {/* Bookings Table */}
-      <div className="max-w-6xl mx-auto bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-muted/10">
-          <h2 className="text-lg font-bold text-primary">Upcoming Bookings</h2>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/30 text-muted-foreground">
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[800px]">
+          <thead>
+            <tr className="bg-muted border-b border-border">
+              <th className="p-4 font-semibold text-sm">Order ID</th>
+              <th className="p-4 font-semibold text-sm">Client</th>
+              <th className="p-4 font-semibold text-sm">Date & Time</th>
+              <th className="p-4 font-semibold text-sm">Specialist</th>
+              <th className="p-4 font-semibold text-sm">Status</th>
+              <th className="p-4 font-semibold text-sm">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.length === 0 ? (
               <tr>
-                <th className="px-6 py-3 font-semibold">Order ID</th>
-                <th className="px-6 py-3 font-semibold">Customer</th>
-                <th className="px-6 py-3 font-semibold">Service</th>
-                <th className="px-6 py-3 font-semibold">Staff</th>
-                {/* FIXED: Used &amp; instead of & */}
-                <th className="px-6 py-3 font-semibold">Date &amp; Time</th>
-                <th className="px-6 py-3 font-semibold">Status</th>
+                <td colSpan="6" className="p-8 text-center text-muted-foreground">
+                  No bookings found.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {mockBookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-muted/10 transition-colors">
-                  <td className="px-6 py-4 font-medium text-primary">{booking.id}</td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold">{booking.customer}</p>
-                    <p className="text-xs text-muted-foreground">{booking.phone}</p>
+            ) : (
+              bookings.map((booking) => (
+                <tr key={booking._id} className="border-b border-border hover:bg-muted/30">
+                  <td className="p-4 text-sm font-mono text-muted-foreground">{booking.orderId}</td>
+                  <td className="p-4 text-sm">
+                    <p className="font-semibold text-foreground">{booking.customerName}</p>
+                    <p className="text-muted-foreground text-xs">{booking.customerPhone}</p>
                   </td>
-                  <td className="px-6 py-4">{booking.service}</td>
-                  <td className="px-6 py-4">{booking.staff}</td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold">{booking.date}</p>
-                    <p className="text-xs text-muted-foreground">{booking.time}</p>
+                  <td className="p-4 text-sm">
+                    <p className="font-semibold text-foreground">{booking.date}</p>
+                    <p className="text-muted-foreground">{booking.time}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      booking.status === 'Paid' 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                  <td className="p-4 text-sm text-foreground">{booking.staffName}</td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      booking.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 
+                      booking.status === 'Cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                     }`}>
                       {booking.status}
                     </span>
                   </td>
+                  <td className="p-4 text-sm space-x-2">
+                    {booking.status !== 'Cancelled' && (
+                      <button 
+                        onClick={() => updateStatus(booking.orderId, 'Cancelled')}
+                        className="px-3 py-1 bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 dark:bg-red-950 dark:border-red-800 dark:hover:bg-red-900 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {booking.status === 'Cancelled' && (
+                      <button 
+                        onClick={() => updateStatus(booking.orderId, 'Confirmed')}
+                        className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 dark:bg-emerald-950 dark:border-emerald-800 dark:hover:bg-emerald-900 transition-colors"
+                      >
+                        Restore
+                      </button>
+                    )}
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-
     </div>
   );
 }

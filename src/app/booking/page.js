@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { servicesList, staffList } from '@/lib/data';
+import Navbar from '@/components/layout/Navbar';
 
 export default function BookingStepOne() {
   const router = useRouter();
@@ -20,8 +21,11 @@ export default function BookingStepOne() {
   };
 
   return (
-    
+    <div className='w-full flex flex-col'>
+      <Navbar/>
     <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
+      
+      
         <button 
   onClick={() => router.back()} 
   className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
@@ -95,6 +99,7 @@ export default function BookingStepOne() {
         >
           Continue to Date & Time
         </button>
+        </div>
       </div>
     </div>
   );

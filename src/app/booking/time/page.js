@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Navbar from '@/components/layout/Navbar';
 
-// Standard salon working hours
 const ALL_TIME_SLOTS = [
   "10:00", "11:00", "12:00", "13:00", 
   "14:00", "15:00", "16:00", "17:00", "18:00"
@@ -13,28 +13,54 @@ function BookingTimeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Grab the selections from Step 1
   const serviceId = searchParams.get('serviceId');
   const staffId = searchParams.get('staffId');
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState(null);
+  const [occupiedTimes, setOccupiedTimes] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // MOCK BACKEND DATA: 
-  // Once your API is connected, you will fetch all bookings for `selectedDate` 
-  // and extract their times into this array. For now, 13:00 and 14:00 are simulated as "Occupied".
-  const occupiedTimes = ["13:00", "14:00"];
+  // Fetch occupied slots from MongoDB whenever selectedDate changes
+  useEffect(() => {
+    if (!selectedDate) {
+      setOccupiedTimes([]);
+      return;
+    }
+
+    async function fetchAvailability() {
+      setLoadingSlots(true);
+      try {
+        const query = new URLSearchParams({ date: selectedDate });
+        if (staffId) query.append('staffId', staffId);
+
+        const res = await fetch(`/api/bookings?${query.toString()}`);
+        const data = await res.json();
+
+        if (data.success) {
+          setOccupiedTimes(data.occupiedTimes || []);
+        }
+      } catch (err) {
+        console.error('Error fetching occupied slots:', err);
+      } finally {
+        setLoadingSlots(false);
+      }
+    }
+
+    fetchAvailability();
+  }, [selectedDate, staffId]);
 
   const handleContinue = () => {
     if (selectedDate && selectedTime) {
-      // Pass all selections to the final customer details page
-      router.push(`/booking/customer?serviceId=${serviceId}&staffId=${staffId}&date=${selectedDate}&time=${selectedTime}`);
+      router.push(`/booking/payment?serviceId=${serviceId}&staffId=${staffId}&date=${selectedDate}&time=${selectedTime}`);
     }
   };
 
   return (
+    <div className='w-full flex flex-col'>
+      <Navbar/>
     <div className="max-w-4xl mx-auto py-12 px-4 text-foreground">
-      {/* Universal Back Button */}
+      
       <button 
         onClick={() => router.back()} 
         className="mb-6 text-primary font-medium hover:opacity-70 flex items-center transition-opacity"
@@ -55,18 +81,12 @@ function BookingTimeContent() {
               type="date" 
               className="w-full border border-border rounded-md p-4 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none cursor-pointer text-lg"
               value={selectedDate}
-              // Prevent selecting dates in the past
               min={new Date().toISOString().split('T')[0]}
               onChange={(e) => {
                 setSelectedDate(e.target.value);
-                setSelectedTime(null); // Reset time if they change the date
+                setSelectedTime(null);
               }}
             />
-            {!selectedDate && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Please select a date to check availability.
-              </p>
-            )}
           </div>
         </div>
 
@@ -75,8 +95,12 @@ function BookingTimeContent() {
           <h2 className="text-2xl font-bold mb-6 text-primary">2. Choose a Time</h2>
           <div className="bg-card border border-border p-6 rounded-xl shadow-sm min-h-[300px]">
             {!selectedDate ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-muted-foreground pt-16">
                 Select a date first
+              </div>
+            ) : loadingSlots ? (
+              <div className="flex items-center justify-center h-full text-primary pt-16">
+                Checking availability...
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-3">
@@ -87,14 +111,15 @@ function BookingTimeContent() {
                   return (
                     <button
                       key={time}
+                      type="button"
                       disabled={isOccupied}
                       onClick={() => setSelectedTime(time)}
                       className={`py-3 rounded-md text-sm font-bold transition-all border ${
                         isOccupied
-                          ? 'bg-muted text-muted-foreground border-transparent cursor-not-allowed opacity-50' // Disabled styling
+                          ? 'bg-muted text-muted-foreground border-transparent cursor-not-allowed opacity-40 line-through'
                           : isSelected
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md' // Selected styling
-                            : 'bg-background text-foreground border-border hover:border-primary hover:text-primary' // Available styling
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-background text-foreground border-border hover:border-primary hover:text-primary'
                       }`}
                     >
                       {time}
@@ -107,7 +132,6 @@ function BookingTimeContent() {
         </div>
       </div>
 
-      {/* --- CONTINUE BUTTON --- */}
       <div className="flex justify-end border-t border-border pt-8">
         <button
           onClick={handleContinue}
@@ -118,9 +142,10 @@ function BookingTimeContent() {
               : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'
           }`}
         >
-          Continue to Details
+          Continue to Payment
         </button>
       </div>
+    </div>
     </div>
   );
 }

@@ -1,24 +1,50 @@
 'use client';
 
-import { Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { servicesList, staffList, salonInfo } from '@/lib/data';
+import { salonInfo } from '@/lib/data';
 
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Grab the finalized details from the URL
-  const serviceId = searchParams.get('serviceId');
-  const staffId = searchParams.get('staffId');
-  const date = searchParams.get('date');
-  const time = searchParams.get('time');
+  // Grab the orderId from the URL (e.g., ?orderId=ORD-123456-789)
+  const orderId = searchParams.get('orderId');
 
-  const service = servicesList.find(s => s.id === serviceId);
-  const staff = staffList.find(s => s.id === staffId);
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // If someone lands here by accident without booking
-  if (!service || !staff || !date || !time) {
+  // Fetch the real booking details from MongoDB
+  useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchBooking() {
+      try {
+        const res = await fetch(`/api/bookings/${orderId}`);
+        const data = await res.json();
+
+        if (data.success) {
+          setBooking(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch booking', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBooking();
+  }, [orderId]);
+
+  if (loading) {
+    return <div className="text-center py-20 text-primary">Loading your ticket...</div>;
+  }
+
+  // If someone lands here by accident or the DB lookup fails
+  if (!booking) {
     return (
       <div className="text-center py-20 text-foreground">
         <h2 className="text-2xl font-bold text-primary mb-4">No booking found</h2>
@@ -43,6 +69,9 @@ function SuccessContent() {
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">Booking Confirmed!</h1>
           <p className="opacity-90 mt-2">Thank you for choosing Aroma Spa.</p>
+          <div className="mt-4 inline-block bg-primary-foreground/20 px-4 py-1 rounded-full text-sm font-semibold tracking-wider">
+            {booking.orderId}
+          </div>
         </div>
 
         {/* Ticket Details */}
@@ -50,34 +79,38 @@ function SuccessContent() {
           <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Date</p>
-              <p className="font-bold text-lg text-foreground">{date}</p>
+              <p className="font-bold text-lg text-foreground">{booking.date}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground mb-1">Time</p>
-              <p className="font-bold text-lg text-foreground">{time}</p>
+              <p className="font-bold text-lg text-foreground">{booking.time}</p>
             </div>
           </div>
 
           <div className="space-y-4 border-b border-border pb-6">
             <div className="flex justify-between">
+              <span className="text-muted-foreground">Client</span>
+              <span className="font-semibold">{booking.customerName}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-muted-foreground">Service</span>
-              <span className="font-semibold">{service.name}</span>
+              <span className="font-semibold">{booking.serviceName}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Specialist</span>
-              <span className="font-semibold">{staff.firstName} {staff.lastName}</span>
+              <span className="font-semibold">{booking.staffName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Duration</span>
-              <span className="font-semibold">{service.durationMinutes} mins</span>
+              <span className="text-muted-foreground">Amount Paid</span>
+              <span className="font-semibold text-primary">₮{booking.price.toLocaleString()}</span>
             </div>
           </div>
 
-          {/* Location details so they know where to go */}
+          {/* Location details */}
           <div className="bg-muted/30 p-4 rounded-lg">
             <h3 className="font-semibold text-primary mb-2">Location</h3>
-            <p className="text-sm text-muted-foreground">{salonInfo.details.location}</p>
-            <p className="text-sm text-muted-foreground mt-1">Phone: {salonInfo.details.bookingPhone}</p>
+            <p className="text-sm text-muted-foreground">{salonInfo?.details?.location || "Ulaanbaatar, Mongolia"}</p>
+            <p className="text-sm text-muted-foreground mt-1">Phone: {salonInfo?.details?.bookingPhone || "N/A"}</p>
           </div>
         </div>
       </div>
@@ -97,7 +130,7 @@ function SuccessContent() {
 // Next.js Suspense wrapper for URL reading
 export default function SuccessPage() {
   return (
-    <Suspense fallback={<div className="text-center py-20">Loading your ticket...</div>}>
+    <Suspense fallback={<div className="text-center py-20 text-primary">Loading your ticket...</div>}>
       <SuccessContent />
     </Suspense>
   );
