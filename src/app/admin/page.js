@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { servicesList, clinicList } from '@/lib/data';
+
+// Helper function to translate 'trt-1' into the real treatment name
+const getTreatmentName = (serviceId) => {
+  const allServices = [...servicesList, ...clinicList];
+  const foundService = allServices.find((item) => item.id === serviceId);
+  return foundService ? foundService.name : serviceId;
+};
 
 export default function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // NEW: State to control which bookings are visible. Defaults to showing only active ones.
+  // State to control which bookings are visible. Defaults to showing only active ones.
   const [filter, setFilter] = useState('Active'); 
 
   useEffect(() => {
@@ -46,7 +54,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // NEW: Filter the bookings array before we draw the table
+  // Filter the bookings array before we draw the table
   const filteredBookings = bookings.filter((booking) => {
     if (filter === 'Active') return booking.status === 'Confirmed';
     if (filter === 'Completed') return booking.status === 'Completed';
@@ -79,11 +87,12 @@ export default function AdminDashboard() {
       </div>
       
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[800px]">
+        <table className="w-full text-left border-collapse min-w-[900px]">
           <thead>
             <tr className="bg-muted border-b border-border">
               <th className="p-4 font-semibold text-sm">Order ID</th>
               <th className="p-4 font-semibold text-sm">Client</th>
+              <th className="p-4 font-semibold text-sm text-primary">Service</th>
               <th className="p-4 font-semibold text-sm">Date & Time</th>
               <th className="p-4 font-semibold text-sm">Specialist</th>
               <th className="p-4 font-semibold text-sm">Status</th>
@@ -94,7 +103,7 @@ export default function AdminDashboard() {
             {/* We map over filteredBookings instead of all bookings */}
             {filteredBookings.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-muted-foreground">
+                <td colSpan="7" className="p-8 text-center text-muted-foreground">
                   No {filter.toLowerCase()} bookings found.
                 </td>
               </tr>
@@ -102,15 +111,24 @@ export default function AdminDashboard() {
               filteredBookings.map((booking) => (
                 <tr key={booking._id} className="border-b border-border hover:bg-muted/30">
                   <td className="p-4 text-sm font-mono text-muted-foreground">{booking.orderId}</td>
+                  
                   <td className="p-4 text-sm">
                     <p className="font-semibold text-foreground">{booking.customerName}</p>
                     <p className="text-muted-foreground text-xs">{booking.customerPhone}</p>
                   </td>
+                  
+                  {/* Service Name Translated from ID */}
+                  <td className="p-4 text-sm font-bold text-primary" title={getTreatmentName(booking.serviceId)}>
+                    {getTreatmentName(booking.serviceId)}
+                  </td>
+
                   <td className="p-4 text-sm">
                     <p className="font-semibold text-foreground">{booking.date}</p>
                     <p className="text-muted-foreground">{booking.time}</p>
                   </td>
+                  
                   <td className="p-4 text-sm text-foreground">{booking.staffName}</td>
+                  
                   <td className="p-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                       booking.status === 'Completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
@@ -121,6 +139,7 @@ export default function AdminDashboard() {
                       {booking.status}
                     </span>
                   </td>
+                  
                   <td className="p-4 text-sm space-x-2">
                     {booking.status === 'Confirmed' && (
                       <div className="flex gap-2">

@@ -36,6 +36,12 @@ export default function Footer() {
               <li>
                 <span onClick={() => router.push('/contact')} className="hover:text-primary transition-colors cursor-pointer">Contact</span>
               </li>
+              <li>
+                <span onClick={() => router.push('/socheck')} className="hover:text-primary transition-colors cursor-pointer">SoCheck</span>
+              </li>
+              <li>
+                <span onClick={() => router.push('/clinic')} className="hover:text-primary transition-colors cursor-pointer">Clinic</span>
+              </li>
             </ul>
           </div>
 

@@ -107,7 +107,7 @@ export default function HomePage() {
             {featuredServices.map(service => (
               <div key={service.id} className="border border-border bg-card p-6 rounded-lg shadow-sm flex flex-col hover:shadow-md transition-shadow">
                 <h3 className="text-lg font-bold text-primary mb-2">{service.name}</h3>
-                <p className="text-sm text-muted-foreground mb-6 flex-grow">⏱ {service.durationMinutes} minutes</p>
+                <p className="text-sm text-muted-foreground mb-6 grow">⏱ {service.durationMinutes} minutes</p>
                 <div className="flex justify-between items-center border-t border-border pt-4">
                   <span className="font-bold text-primary">₮{service.price.toLocaleString()}</span>
                   <button 

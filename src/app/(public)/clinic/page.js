@@ -1,42 +1,44 @@
 'use client';
 
-import { servicesList } from '@/lib/data';
+import { clinicList } from "@/lib/data";
 import { useRouter } from 'next/navigation';
 
-// Helper function for nice section titles
+// Helper function for Clinic section titles
 const getCategoryTitle = (category) => {
   switch (category) {
-    case 'Body Spa': return '🌿 Биеийн Спа (Body Spa)';
-    case 'Facial': return '✨ Нүүрний Арчилгаа (Facial)';
-    case 'Hair': return '💆‍♀️ Үсний Эмчилгээ (Hair)';
+    case 'Mesotherapy': return '💉 Мезотерапи (Mesotherapy)';
+    case 'Botox': return '✨ Ботокс (Botox)';
+    case 'Filler': return '💧 Филлер (Filler)';
+    case 'Threads': return '🧵 Утас (Threads)';
+    case 'Peeling': return '🧖‍♀️ Пилинг (Peeling)';
     default: return category;
   }
 };
 
-export default function ServicesPage() {
+export default function ClinicPage() {
   const router = useRouter();
 
-  // Group the treatments by their category
-  const groupedTreatments = servicesList.reduce((acc, treatment) => {
-    if (!acc[treatment.category]) {
-      acc[treatment.category] = [];
+  // Group the clinic treatments by their category
+  const groupedClinic = clinicList.reduce((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = [];
     }
-    acc[treatment.category].push(treatment);
+    acc[item.category].push(item);
     return acc;
   }, {});
 
   return (
     <div className="flex flex-col items-center py-12 px-4 max-w-6xl mx-auto text-foreground">
       <h1 className="text-4xl font-extrabold tracking-tight mb-4 text-primary">
-        Our Treatments
+        Clinic Menu
       </h1>
       <p className="text-lg text-muted-foreground mb-10 text-center max-w-2xl">
-        Discover our range of premium treatments designed to help you relax, rejuvenate, and feel your absolute best.
+        Эмчилгээний гоо сайхан, арьс арчилгаа болон дэвшилтэт тарилгын үйлчилгээнүүд.
       </p>
       
       <div className="w-full">
-        {/* Loop through each category block */}
-        {Object.entries(groupedTreatments).map(([category, treatments]) => (
+        {/* Loop through each clinic category block */}
+        {Object.entries(groupedClinic).map(([category, treatments]) => (
           <div key={category} className="mb-16 w-full">
             
             {/* --- SECTION HEADER --- */}
@@ -46,7 +48,7 @@ export default function ServicesPage() {
               </h2>
             </div>
 
-            {/* --- YOUR ORIGINAL GRID & CARDS --- */}
+            {/* --- GRID & CARDS --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
               {treatments.map((service) => (
                 <div 
@@ -67,8 +69,8 @@ export default function ServicesPage() {
                   {/* Bottom part of the card with Price and Button */}
                   <div className="flex items-center justify-between pt-4 border-t border-border mt-auto">
                     <span className="text-2xl font-bold text-primary">
-  {service.price ? `₮${service.price.toLocaleString()}` : 'Үнэ лавлах'}
-</span>
+                      {service.price === 0 ? 'Үнэ лавлах' : `₮${service.price.toLocaleString()}`}
+                    </span>
                     <button 
                       onClick={() => router.push(`/booking?serviceId=${service.id}`)} 
                       className="bg-primary text-primary-foreground px-5 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"

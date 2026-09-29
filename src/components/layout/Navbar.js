@@ -21,7 +21,19 @@ export default function Navbar() {
           onClick={() => router.push('/services')} 
           className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors"
         >
-          Services
+          Treatments
+        </span>
+        <span 
+          onClick={() => router.push('/socheck')} 
+          className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors"
+        >
+          SoCheck
+        </span>
+        <span 
+          onClick={() => router.push('/clinic')} 
+          className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors"
+        >
+          Clinic
         </span>
         <span 
           onClick={() => router.push('/staff')} 
@@ -35,9 +47,12 @@ export default function Navbar() {
         >
           Contact
         </span>
-        <span onClick={() => router.push('/about')} className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors">
-  About
-</span>
+        <span 
+          onClick={() => router.push('/about')} 
+          className="text-sm font-medium cursor-pointer text-foreground hover:text-primary transition-colors"
+        >
+          About
+        </span>
         {/* Booking Button */}
         <button 
           onClick={() => router.push('/booking')} 
