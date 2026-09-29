@@ -27,7 +27,7 @@ export default function Footer() {
           
           <div className="hidden md:flex md:col-span-12 lg:col-span-5 flex-col items-start">
             <img 
-              src="/logo-removebg-preview.png" 
+              src="/aroma.jpg" 
               alt="Aroma Beauty Clinic & Spa"
               className="w-48 lg:w-56 h-auto object-contain mb-6 cursor-pointer hover:opacity-80 transition-opacity mix-blend-multiply dark:mix-blend-screen"
               onClick={() => router.push('/')}
