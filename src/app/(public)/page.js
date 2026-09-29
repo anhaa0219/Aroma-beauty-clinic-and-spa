@@ -111,7 +111,7 @@ export default function HomePage() {
       {/* 4. POPULAR SERVICES */}
       <div className="w-full py-24 px-4 bg-background">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-4">
             <div>
               <h2 className="text-sm font-bold tracking-[0.2em] text-primary uppercase mb-2">Taste of Luxury</h2>
               <h3 className="text-3xl font-bold text-foreground">Featured Treatments</h3>
