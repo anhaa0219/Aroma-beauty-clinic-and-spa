@@ -29,7 +29,7 @@ export default function Footer() {
             <img 
               src="/aroma.jpg" 
               alt="Aroma Beauty Clinic & Spa"
-              className="w-48 lg:w-56 h-auto object-contain mb-6 cursor-pointer hover:opacity-80 transition-opacity mix-blend-multiply dark:mix-blend-screen"
+              className="w-48 lg:w-56 h-auto object-contain mb-6 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => router.push('/')}
             />
             <p className="text-muted-foreground font-light leading-relaxed max-w-sm text-sm md:text-base">
