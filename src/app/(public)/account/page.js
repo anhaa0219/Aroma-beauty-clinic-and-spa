@@ -50,6 +50,7 @@ export default function AccountPage() {
   const { status, user, loyalty, bookings, refresh, logout } = useCustomer({ withBookings: true });
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const [tab, setTab] = useState('upcoming');
 
   useEffect(() => {
     if (status === 'guest') router.replace('/login?next=/account');
@@ -68,7 +69,17 @@ export default function AccountPage() {
   const upcoming = bookings
     .filter((b) => ACTIVE_STATUSES.includes(b.status) && b.date >= today)
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  const history = bookings.filter((b) => !upcoming.includes(b));
+  const completed = bookings
+    .filter((b) => b.status === 'Completed')
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const all = [...bookings].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+  const TABS = [
+    { key: 'upcoming', label: 'Удахгүй болох', list: upcoming, empty: 'Удахгүй болох захиалга алга.' },
+    { key: 'completed', label: 'Дууссан', list: completed, empty: 'Дууссан үйлчилгээ одоогоор алга.' },
+    { key: 'all', label: 'Бүх түүх', list: all, empty: 'Захиалгын түүх алга.' },
+  ];
+  const activeTab = TABS.find((t) => t.key === tab);
 
   const saveName = async (e) => {
     e.preventDefault();
@@ -154,10 +165,10 @@ export default function AccountPage() {
       </div>
 
       {/* Bookings */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
-            <CalendarCheck className="w-5 h-5 text-primary" /> Удахгүй болох
+            <CalendarCheck className="w-5 h-5 text-primary" /> Миний захиалгууд
           </h2>
           <button
             onClick={() => router.push('/booking')}
@@ -166,26 +177,41 @@ export default function AccountPage() {
             <Plus className="w-4 h-4" /> Цаг захиалах
           </button>
         </div>
-        {upcoming.length === 0 ? (
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-muted/60 border border-border rounded-2xl p-1 w-full sm:w-fit">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors ${
+                tab === t.key ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t.label}
+              <span className={`ml-1.5 text-xs ${tab === t.key ? 'opacity-80' : 'opacity-60'}`}>{t.list.length}</span>
+            </button>
+          ))}
+        </div>
+
+        {activeTab.list.length === 0 ? (
           <p className="text-sm text-muted-foreground p-6 text-center rounded-2xl border border-dashed border-border">
-            Удахгүй болох захиалга алга.
+            {activeTab.empty}
           </p>
         ) : (
-          upcoming.map((b) => <BookingItem key={b._id} booking={b} />)
+          <div className="space-y-3">
+            {activeTab.list.map((b) => (
+              <BookingItem key={b._id} booking={b} />
+            ))}
+          </div>
         )}
-      </section>
 
-      {history.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-extrabold text-foreground">Түүх</h2>
-          {history.map((b) => (
-            <BookingItem key={b._id} booking={b} />
-          ))}
+        {tab === 'completed' && completed.length > 0 && (
           <p className="text-xs text-muted-foreground text-right">
             Нийт үйлчилгээ авсан дүн: <b className="text-foreground">{formatMoney(loyalty.totalSpend)}</b>
           </p>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

@@ -4,9 +4,6 @@ import { ACTIVE_STATUSES, CLOSE_TIME, OPEN_TIME, WORKER_COUNT, toMinutes } from 
 
 const OPEN = toMinutes(OPEN_TIME);
 const CLOSE = toMinutes(CLOSE_TIME);
-const SPAN = CLOSE - OPEN;
-const HOURS = Array.from({ length: SPAN / 60 + 1 }, (_, i) => OPEN + i * 60);
-const pct = (minutes) => `${((Math.min(Math.max(minutes, OPEN), CLOSE) - OPEN) / SPAN) * 100}%`;
 
 // One bar per person (each needs its own worker), packed into rows so bars never overlap
 function buildLanes(bookings) {
@@ -50,7 +47,14 @@ const barClass = (booking, overdue) =>
  */
 export default function DayTimetable({ bookings, nowMinutes, isPastDay, onSelect }) {
   const lanes = buildLanes(bookings.filter((b) => b.status !== 'Cancelled'));
-  const showNow = nowMinutes != null && nowMinutes >= OPEN && nowMinutes <= CLOSE;
+
+  // The timeline normally ends at closing, but extends to fit treatments that run over
+  const latestEnd = Math.max(CLOSE, ...lanes.flat().map((u) => u.end));
+  const END = Math.ceil(latestEnd / 60) * 60;
+  const SPAN = END - OPEN;
+  const HOURS = Array.from({ length: SPAN / 60 + 1 }, (_, i) => OPEN + i * 60);
+  const pct = (minutes) => `${((Math.min(Math.max(minutes, OPEN), END) - OPEN) / SPAN) * 100}%`;
+  const showNow = nowMinutes != null && nowMinutes >= OPEN && nowMinutes <= END;
 
   return (
     <div className="overflow-x-auto -mx-2 px-2">

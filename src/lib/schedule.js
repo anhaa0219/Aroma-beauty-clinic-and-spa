@@ -2,7 +2,8 @@ import { servicesList, clinicList } from '@/lib/data';
 
 // Salon working hours (see salonInfo.details.workingHours) and slot grid size
 export const OPEN_TIME = '09:00';
-export const CLOSE_TIME = '20:00';
+export const CLOSE_TIME = '20:00'; // Salon closes; no treatment may run past this
+export const LAST_SLOT_TIME = '19:00'; // Latest a booking may start (last order)
 export const SLOT_MINUTES = 30;
 export const WORKER_COUNT = 5; // How many clients can be served at the same time
 // Bookings that occupy workers (Completed frees the worker, e.g. when a treatment ends early)
@@ -19,10 +20,10 @@ export const toMinutes = (time) => {
 export const toTime = (minutes) =>
   `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 
-// Every slot start on the grid: 09:00, 09:30, 10:00 ... 19:30
+// Every slot start on the grid: 09:00, 09:30, 10:00 ... 19:00 (last order)
 export const ALL_SLOTS = (() => {
   const slots = [];
-  for (let m = toMinutes(OPEN_TIME); m < toMinutes(CLOSE_TIME); m += SLOT_MINUTES) {
+  for (let m = toMinutes(OPEN_TIME); m <= toMinutes(LAST_SLOT_TIME); m += SLOT_MINUTES) {
     slots.push(toTime(m));
   }
   return slots;
@@ -127,22 +128,22 @@ export const busyAt = (t, bookings) => bookings.reduce((sum, b) => sum + booking
  * and every treatment ends before closing.
  * `lines` comes from describeItems() (needs durationMinutes + quantity).
  */
-// graceMinutes lets the admin book a slot that has already started (walk-in clients)
+// graceMinutes lets the admin book a slot that has already started (walk-in clients).
+// A booking may start up to LAST_SLOT_TIME (the last slot) and run past closing — the
+// worker simply stays to finish, so no "ends before closing" check here.
 export function computeSlots({ date, lines, bookings, graceMinutes = 0 }) {
   const longest = Math.max(...lines.map((l) => l.durationMinutes));
   const length = blockedMinutes(longest);
-  const close = toMinutes(CLOSE_TIME);
   const now = salonNow();
 
   return ALL_SLOTS.map((time) => {
     const start = toMinutes(time);
     const end = start + length;
     const isPast = date < now.date || (date === now.date && start + graceMinutes <= now.minutes);
-    const fitsDay = end <= close;
 
     let freeCount = 0; // Workers free during the whole visit
     let fits = false;
-    if (!isPast && fitsDay) {
+    if (!isPast) {
       freeCount = WORKER_COUNT;
       fits = true;
       for (let t = start; t < end; t += SLOT_MINUTES) {
@@ -157,7 +158,7 @@ export function computeSlots({ date, lines, bookings, graceMinutes = 0 }) {
       endTime: toTime(start + longest),
       available: fits,
       freeCount,
-      reason: isPast ? 'past' : !fitsDay ? 'closing' : !fits ? 'full' : null,
+      reason: isPast ? 'past' : !fits ? 'full' : null,
     };
   });
 }

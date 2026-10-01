@@ -10,10 +10,14 @@ import {
   isValidDate,
   normalizeItems,
   parseItems,
+  salonNow,
   toMinutes,
   toTime,
 } from '@/lib/schedule';
 import { normalizePhone } from '@/lib/loyalty';
+
+// Anti-abuse: one phone can hold at most this many upcoming active (unpaid) online bookings
+export const MAX_UPCOMING_PER_PHONE = 6;
 
 export const activeBookingsOn = (date) =>
   Booking.find({ date, status: { $in: ACTIVE_STATUSES } })
@@ -88,6 +92,22 @@ export async function createBooking({
 
   await connectToDatabase();
   await dropLegacyIndex();
+
+  // Guest/online checkout has no login gate, so cap how many upcoming bookings one phone can hold
+  if (source === 'online' && customerPhone) {
+    const today = salonNow().date;
+    const upcoming = await Booking.countDocuments({
+      customerPhone,
+      status: { $in: ACTIVE_STATUSES },
+      date: { $gte: today },
+    });
+    if (upcoming >= MAX_UPCOMING_PER_PHONE) {
+      return fail(
+        429,
+        `Энэ дугаар дээр ${MAX_UPCOMING_PER_PHONE} идэвхтэй захиалга байна. Өмнөх захиалгаа ашигласны дараа дахин захиална уу.`
+      );
+    }
+  }
 
   const isSlotFree = (bookings) =>
     computeSlots({ date, lines: order.lines, bookings, graceMinutes }).find((s) => s.time === time)?.available;

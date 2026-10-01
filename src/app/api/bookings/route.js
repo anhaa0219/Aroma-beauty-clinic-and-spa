@@ -20,32 +20,29 @@ export async function GET(req) {
   }
 }
 
-// POST: Create an online group booking for the logged-in customer
-// body: { customerName, date, time, items: [{ serviceId, quantity }] }
+// POST: Create an online group booking.
+// Logged-in customers: phone comes from their verified session.
+// Guests: they type their phone in the form (not verified, but they can claim the
+// booking's history/Loyalty progress later by logging in with that same number).
+// body: { customerName, customerPhone?, date, time, items: [{ serviceId, quantity }] }
 export async function POST(req) {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Захиалга өгөхийн тулд нэвтэрнэ үү', needLogin: true },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
     const customerName = String(body.customerName || '').trim();
+
     const { status, body: result } = await createBooking({
       customerName,
-      customerPhone: session.phone, // Always the verified login number
-      userId: session.uid,
+      customerPhone: session ? session.phone : body.customerPhone, // session phone is trusted; guest phone validated in service
+      userId: session ? session.uid : undefined,
       items: body.items ?? (body.serviceId ? [{ serviceId: body.serviceId, quantity: 1 }] : null),
       date: body.date,
       time: body.time,
       source: 'online',
     });
 
-    // Remember the name for next time
-    if (result.success) {
+    // Remember the name on the logged-in customer's profile for next time
+    if (result.success && session) {
       await connectToDatabase();
       await User.updateOne({ _id: session.uid, $or: [{ name: null }, { name: '' }] }, { name: customerName });
     }
