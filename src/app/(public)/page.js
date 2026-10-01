@@ -153,7 +153,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 5. FINAL VIP CALL TO ACTION */}
+      {/* 5. FINAL Loyalty Member CALL TO ACTION */}
       <div className="w-full py-24 px-4 bg-primary text-primary-foreground relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
         

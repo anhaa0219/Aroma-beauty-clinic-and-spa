@@ -1,94 +1,57 @@
 import { NextResponse } from 'next/server';
+import { createBooking, getAvailability } from '@/lib/bookingService';
 import { connectToDatabase } from '@/lib/mongodb';
-import Booking from '@/models/Booking';
+import { getSession } from '@/lib/session';
+import User from '@/models/User';
 
-// GET: Fetch occupied time slots for a given date and staff member
+// GET: Availability for every 30-min slot of a day for a group order
+// /api/bookings?date=YYYY-MM-DD&items=trt-1:2,trt-5:1   (or &serviceId=trt-1 for a single treatment)
 export async function GET(req) {
   try {
-    await connectToDatabase();
-
     const { searchParams } = new URL(req.url);
-    const date = searchParams.get('date');
-    const staffId = searchParams.get('staffId');
-
-    if (!date) {
-      return NextResponse.json(
-        { success: false, error: 'Date query parameter is required' },
-        { status: 400 }
-      );
-    }
-
-    const query = { date, status: { $ne: 'Cancelled' } };
-    if (staffId) {
-      query.staffId = staffId;
-    }
-
-    // Retrieve only the booked times for that date
-    const bookings = await Booking.find(query).select('time -_id');
-    const occupiedTimes = bookings.map((b) => b.time);
-
-    return NextResponse.json({ success: true, occupiedTimes }, { status: 200 });
+    const { status, body } = await getAvailability({
+      date: searchParams.get('date'),
+      itemsText: searchParams.get('items') || searchParams.get('serviceId'),
+    });
+    return NextResponse.json(body, { status });
   } catch (error) {
-    console.error('Failed to fetch bookings:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    console.error('Failed to fetch availability:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// POST: Create a new booking
+// POST: Create an online group booking for the logged-in customer
+// body: { customerName, date, time, items: [{ serviceId, quantity }] }
 export async function POST(req) {
   try {
-    await connectToDatabase();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Захиалга өгөхийн тулд нэвтэрнэ үү', needLogin: true },
+        { status: 401 }
+      );
+    }
 
     const body = await req.json();
-    const { customerName, customerPhone, serviceId, serviceName, staffId, staffName, date, time, price } = body;
-
-    if (!customerName || !customerPhone || !serviceId || !staffId || !date || !time) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required booking fields' },
-        { status: 400 }
-      );
-    }
-
-    // Check if slot is already taken
-    const existing = await Booking.findOne({
-      staffId,
-      date,
-      time,
-      status: { $ne: 'Cancelled' },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { success: false, error: 'This time slot is already booked for this specialist.' },
-        { status: 409 }
-      );
-    }
-
-    const orderId = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
-
-    const newBooking = await Booking.create({
-      orderId,
+    const customerName = String(body.customerName || '').trim();
+    const { status, body: result } = await createBooking({
       customerName,
-      customerPhone,
-      serviceId,
-      serviceName,
-      staffId,
-      staffName,
-      date,
-      time,
-      price,
-      status: 'Confirmed',
+      customerPhone: session.phone, // Always the verified login number
+      userId: session.uid,
+      items: body.items ?? (body.serviceId ? [{ serviceId: body.serviceId, quantity: 1 }] : null),
+      date: body.date,
+      time: body.time,
+      source: 'online',
     });
 
-    return NextResponse.json({ success: true, data: newBooking }, { status: 201 });
+    // Remember the name for next time
+    if (result.success) {
+      await connectToDatabase();
+      await User.updateOne({ _id: session.uid, $or: [{ name: null }, { name: '' }] }, { name: customerName });
+    }
+    return NextResponse.json(result, { status });
   } catch (error) {
     console.error('Booking creation error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

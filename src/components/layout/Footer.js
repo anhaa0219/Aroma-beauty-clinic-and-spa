@@ -1,96 +1,182 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowRight, ArrowUpRight, Clock, Mail, MapPin, Phone, ShieldCheck, Sparkles } from 'lucide-react';
 import { salonInfo } from '@/lib/data';
+import BrandLogo from '@/components/layout/BrandLogo';
+
+const QUICK_LINKS = [
+  { name: 'Home', path: '/' },
+  { name: 'Treatments', path: '/services' },
+  { name: 'SoCheck', path: '/socheck' },
+  { name: 'Clinic', path: '/clinic' },
+  { name: 'Our Team', path: '/staff' },
+  { name: 'About', path: '/about' },
+  { name: 'Contact', path: '/contact' },
+];
+
+const ACCOUNT_LINKS = [
+  { name: 'Цаг захиалах', path: '/booking' },
+  { name: 'Миний бүртгэл', path: '/account' },
+  { name: 'Loyalty Member', path: '/account' },
+];
+
+function ColumnTitle({ children }) {
+  return (
+    <h4 className="flex items-center gap-2 text-[11px] font-bold tracking-[0.25em] uppercase text-amber-300 mb-5">
+      <span className="w-4 h-px bg-amber-300/70" />
+      {children}
+    </h4>
+  );
+}
+
+function FooterLink({ href, children }) {
+  return (
+    <Link
+      href={href}
+      className="group inline-flex items-center gap-1 text-sm text-white/70 hover:text-white transition-colors"
+    >
+      {children}
+      <ArrowUpRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+    </Link>
+  );
+}
 
 export default function Footer() {
-  const router = useRouter();
-
-  const quickLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Treatments', path: '/services' },
-    { name: 'SoCheck', path: '/socheck' },
-    { name: 'Clinic', path: '/clinic' },
-    { name: 'Our Team', path: '/staff' },
-    { name: 'Contact', path: '/contact' }
-  ];
+  const { details, owner } = salonInfo;
+  const telHref = `tel:${details.bookingPhone.replace(/\D/g, '')}`;
 
   return (
-    <footer className="bg-background relative mt-auto font-sans">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-border to-transparent opacity-70"></div>
-      
-      {/* Adjusted padding: pt-12 on mobile, pt-20 on desktop */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-8 md:pb-10">
-        
-        {/* Adjusted grid: tighter gap-10 on mobile, added sm:grid-cols-2 for landscape phones */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-10 md:gap-8 mb-10 md:mb-16">
-          
-          <div className="hidden md:flex md:col-span-12 lg:col-span-5 flex-col items-start">
-            <img 
-              src="/aroma.jpg" 
-              alt="Aroma Beauty Clinic & Spa"
-              className="w-48 lg:w-56 h-auto object-contain mb-6 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => router.push('/')}
-            />
-            <p className="text-muted-foreground font-light leading-relaxed max-w-sm text-sm md:text-base">
-              Experience advanced aesthetic treatments and ultimate relaxation in the heart of Ulaanbaatar. Your sanctuary for premium marine-based wellness.
+    <footer className="relative mt-auto overflow-hidden bg-linear-to-b from-[#004a58] to-[#00303a] text-white">
+      {/* Decorative glows + watermark */}
+      <div className="pointer-events-none absolute -top-32 -left-24 w-96 h-96 rounded-full bg-teal-300/10 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/3 -right-24 w-96 h-96 rounded-full bg-amber-300/10 blur-3xl" />
+      <p
+        aria-hidden
+        className="pointer-events-none select-none absolute -bottom-6 md:-bottom-12 left-1/2 -translate-x-1/2 text-[22vw] md:text-[16rem] font-extrabold leading-none tracking-tighter text-white/[0.03] whitespace-nowrap"
+      >
+        AROMA
+      </p>
+
+      <div className="relative max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-20 pb-8">
+        {/* --- CTA --- */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-6 md:p-10 mb-14 md:mb-20 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-amber-300/20 blur-2xl" />
+          <div className="relative">
+            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+              <Sparkles className="w-4 h-4" /> Aroma Beauty Clinic & Spa
+            </p>
+            <h3 className="text-2xl md:text-4xl font-extrabold tracking-tight mt-3">Өөртөө цаг гаргаарай</h3>
+            <p className="text-white/70 mt-2 max-w-xl">
+              Онлайнаар хэдхэн алхмаар цагаа захиалж, үйлчилгээ бүрээрээ Loyalty Member болоход ойртоорой.
+            </p>
+          </div>
+          <div className="relative flex flex-col sm:flex-row gap-3 shrink-0">
+            <Link
+              href="/booking"
+              className="group h-12 inline-flex items-center justify-center gap-2 px-7 rounded-full bg-white text-primary font-extrabold shadow-xl shadow-black/20 hover:-translate-y-0.5 transition-transform"
+            >
+              Цаг захиалах
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <a
+              href={telHref}
+              className="h-12 inline-flex items-center justify-center gap-2 px-6 rounded-full border border-white/30 text-white font-bold hover:bg-white/10 transition-colors"
+            >
+              <Phone className="w-4 h-4" /> {details.bookingPhone}
+            </a>
+          </div>
+        </div>
+
+        {/* --- COLUMNS --- */}
+        <div className="grid grid-cols-2 md:grid-cols-12 gap-x-6 gap-y-12 mb-14">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-12 lg:col-span-4">
+            <Link href="/" className="inline-block hover:opacity-90 transition-opacity">
+              <BrandLogo variant="dark" className="h-28 md:h-32" />
+            </Link>
+            <p className="text-white/65 leading-relaxed text-sm mt-6 max-w-sm">
+              Experience advanced aesthetic treatments and ultimate relaxation in the heart of Ulaanbaatar. Your
+              sanctuary for premium marine-based wellness.
             </p>
           </div>
 
-          <div className="md:col-span-5 lg:col-span-3 lg:ml-auto">
-            <h4 className="text-xs font-bold tracking-[0.2em] uppercase text-primary mb-5 md:mb-6">Explore</h4>
-            <ul className="space-y-4">
-              {quickLinks.map((link) => (
-                <li key={link.name}>
-                  <span 
-                    onClick={() => router.push(link.path)} 
-                    className="group flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer w-fit"
-                  >
-                    <span className="h-[1px] w-0 bg-primary mr-0 group-hover:w-4 group-hover:mr-2 transition-all duration-300 ease-out"></span>
-                    {link.name}
-                  </span>
+          {/* Explore */}
+          <div className="md:col-span-4 lg:col-span-2">
+            <ColumnTitle>Explore</ColumnTitle>
+            <ul className="space-y-3">
+              {QUICK_LINKS.map((link) => (
+                <li key={link.path}>
+                  <FooterLink href={link.path}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="md:col-span-7 lg:col-span-4 lg:ml-auto">
-            <h4 className="text-xs font-bold tracking-[0.2em] uppercase text-primary mb-5 md:mb-6">Contact & Visit</h4>
-            <ul className="space-y-5 text-sm text-muted-foreground font-light">
-              <li className="flex gap-4 items-start group">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-primary mt-0.5 shrink-0 group-hover:scale-110 transition-transform">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                </svg>
-                <span className="leading-relaxed">{salonInfo.details.location}</span>
+          {/* Account */}
+          <div className="md:col-span-3 lg:col-span-2">
+            <ColumnTitle>Захиалга</ColumnTitle>
+            <ul className="space-y-3">
+              {ACCOUNT_LINKS.map((link) => (
+                <li key={link.name}>
+                  <FooterLink href={link.path}>{link.name}</FooterLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contact & hours */}
+          <div className="col-span-2 md:col-span-5 lg:col-span-4">
+            <ColumnTitle>Contact & Visit</ColumnTitle>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3 rounded-2xl bg-white/[0.05] border border-white/10 p-3">
+                <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4 text-amber-300" />
+                </span>
+                <span className="text-sm text-white/80 leading-relaxed pt-1.5">{details.location}</span>
               </li>
-              
-              <li className="flex gap-4 items-center group">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.89-1.424-5.224-3.758-6.648-6.648l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                </svg>
-                <span>{salonInfo.details.bookingPhone}</span>
+              <li className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <a
+                  href={telHref}
+                  className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 p-3 hover:bg-white/10 transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Phone className="w-4 h-4 text-amber-300" />
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums">{details.bookingPhone}</span>
+                </a>
+                <div className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 p-3">
+                  <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4 text-amber-300" />
+                  </span>
+                  <span className="text-sm leading-tight">
+                    <span className="block text-[11px] text-white/50">Өдөр бүр</span>
+                    <span className="font-semibold tabular-nums">{details.workingHours}</span>
+                  </span>
+                </div>
               </li>
-              
-              <li className="flex gap-4 items-center group">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                <span>{salonInfo.owner.email}</span>
+              <li>
+                <a
+                  href={`mailto:${owner.email}`}
+                  className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 p-3 hover:bg-white/10 transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Mail className="w-4 h-4 text-amber-300" />
+                  </span>
+                  <span className="text-sm text-white/80 truncate">{owner.email}</span>
+                </a>
               </li>
             </ul>
           </div>
-          
         </div>
 
-        <div className="border-t border-border/60 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs font-light text-muted-foreground tracking-wide text-center md:text-left">
-            &copy; {new Date().getFullYear()} AROMA BEAUTY CLINIC & SPA. ALL RIGHTS RESERVED.
+        {/* --- BOTTOM BAR --- */}
+        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-xs text-white/50 tracking-wide text-center md:text-left">
+            &copy; {new Date().getFullYear()} Aroma Beauty Clinic & Spa. All rights reserved.
           </p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-light text-muted-foreground tracking-wide">SECURE PAYMENTS BY</span>
-            <span className="text-xs font-bold text-foreground tracking-widest uppercase">QPay</span>
-          </div>
+          <span className="inline-flex items-center gap-2 h-8 px-4 rounded-full bg-white/[0.06] border border-white/10 text-xs text-white/60">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+            Secure payments by <b className="text-white tracking-widest">QPAY</b>
+          </span>
         </div>
       </div>
     </footer>

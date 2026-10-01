@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { servicesList, staffList } from '@/lib/data';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { servicesList, clinicList } from '@/lib/data';
 import Navbar from '@/components/layout/Navbar';
+import { WORKER_COUNT, findService, serializeItems } from '@/lib/schedule';
 
 // Helper function for nice section titles
 const getCategoryTitle = (category) => {
@@ -16,23 +17,49 @@ const getCategoryTitle = (category) => {
   }
 };
 
-export default function BookingStepOne() {
+const bookableServices = [
+  ...servicesList,
+  ...clinicList.map((service) => ({ ...service, category: 'Clinic' })),
+];
+
+function BookingStepOneContent() {
   const router = useRouter();
-  
-  // React state to remember what the user clicked
-  const [selectedService, setSelectedService] = useState(null);
-  const [selectedStaff, setSelectedStaff] = useState(null);
+  const searchParams = useSearchParams();
+
+  // { serviceId: quantity } — each unit is one person, i.e. one worker
+  // (a service can be preselected from the Treatments page)
+  const [quantities, setQuantities] = useState(() => {
+    const id = searchParams.get('serviceId');
+    return findService(id) ? { [id]: 1 } : {};
+  });
+
+  const totalPeople = Object.values(quantities).reduce((sum, q) => sum + q, 0);
+  const totalPrice = Object.entries(quantities).reduce(
+    (sum, [id, q]) => sum + (findService(id)?.price || 0) * q,
+    0
+  );
+  const isFull = totalPeople >= WORKER_COUNT;
+
+  const changeQuantity = (serviceId, delta) =>
+    setQuantities((prev) => {
+      const current = prev[serviceId] || 0;
+      const total = Object.values(prev).reduce((sum, q) => sum + q, 0);
+      if (delta > 0 && total >= WORKER_COUNT) return prev;
+      const next = { ...prev, [serviceId]: Math.max(0, current + delta) };
+      if (next[serviceId] === 0) delete next[serviceId];
+      return next;
+    });
 
   const handleContinue = () => {
-    // Only proceed if both are selected
-    if (selectedService && selectedStaff) {
+    if (totalPeople > 0) {
+      const items = Object.entries(quantities).map(([serviceId, quantity]) => ({ serviceId, quantity }));
       // Send the user to the Time page with their choices attached to the URL
-      router.push(`/booking/time?serviceId=${selectedService}&staffId=${selectedStaff}`);
+      router.push(`/booking/time?items=${serializeItems(items)}`);
     }
   };
 
   // Group the services by their category
-  const groupedServices = servicesList.reduce((acc, service) => {
+  const groupedServices = bookableServices.reduce((acc, service) => {
     // If a service is missing a category, it goes to 'Other'
     const cat = service.category || 'Other';
     if (!acc[cat]) {
@@ -60,9 +87,14 @@ export default function BookingStepOne() {
         {/* --- 1. SERVICE SELECTION (Categorized) --- */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold mb-6 text-primary bg-secondary p-3 rounded-lg">
-            1. Select a Service
+            1. Select Treatments
           </h2>
-          
+          <p className="text-sm text-muted-foreground mb-6 -mt-2">
+            Хэдэн хүн үйлчлүүлэх вэ? Нэг эмчилгээ = нэг хүн. Нэг удаад {WORKER_COUNT} хүртэл хүн захиалах боломжтой.
+            <br />
+            How many people are coming? Each treatment is one person. Book up to {WORKER_COUNT} at once.
+          </p>
+
           {Object.entries(groupedServices).map(([category, services]) => (
             <div key={category} className="mb-8">
               
@@ -73,69 +105,79 @@ export default function BookingStepOne() {
               
               {/* Category Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {services.map((service) => (
-                  <div
-                    key={service.id}
-                    onClick={() => setSelectedService(service.id)}
-                    className={`border p-6 rounded-lg cursor-pointer transition-all ${
-                      selectedService === service.id
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-md' // Highlighted Marine Blue style
-                        : 'border-border bg-card hover:border-primary/50'
-                    }`}
-                  >
-                    <h4 className="text-md font-semibold mb-2 leading-tight">{service.name}</h4>
-                    <div className="flex justify-between items-center text-sm mt-4">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        ⏱️ {service.durationMinutes} мин
-                      </span>
-                      <span className="font-bold text-primary text-lg">
-                        {/* Crash-proof price check */}
-                        {service.price ? `₮${service.price.toLocaleString()}` : 'Үнэ лавлах'}
-                      </span>
+                {services.map((service) => {
+                  const qty = quantities[service.id] || 0;
+                  return (
+                    <div
+                      key={service.id}
+                      onClick={() => qty === 0 && changeQuantity(service.id, 1)}
+                      className={`border p-6 rounded-lg transition-all ${
+                        qty > 0
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-md' // Highlighted Marine Blue style
+                          : isFull
+                            ? 'border-border bg-card opacity-60'
+                            : 'border-border bg-card hover:border-primary/50 cursor-pointer'
+                      }`}
+                    >
+                      <h4 className="text-md font-semibold mb-2 leading-tight">{service.name}</h4>
+                      <div className="flex justify-between items-center text-sm mt-4">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          ⏱️ {service.durationMinutes} мин
+                        </span>
+                        <span className="font-bold text-primary text-lg">
+                          {/* Crash-proof price check */}
+                          {service.price ? `₮${service.price.toLocaleString()}` : 'Үнэ лавлах'}
+                        </span>
+                      </div>
+                      {qty > 0 && (
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-primary/10">
+                          <span className="text-sm font-medium text-foreground">Хүний тоо (People)</span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(service.id, -1)}
+                              aria-label="Remove one"
+                              className="w-8 h-8 rounded-full border border-primary text-primary font-bold hover:bg-primary/10"
+                            >
+                              −
+                            </button>
+                            <span className="w-4 text-center font-bold text-primary">{qty}</span>
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(service.id, 1)}
+                              disabled={isFull}
+                              aria-label="Add one"
+                              className="w-8 h-8 rounded-full border border-primary text-primary font-bold hover:bg-primary/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
             </div>
           ))}
         </div>
 
-        {/* --- 2. STAFF SELECTION --- */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold mb-6 text-primary bg-secondary p-3 rounded-lg">
-            2. Select a Specialist
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {staffList.map((staff) => (
-              <div
-                key={staff.id}
-                onClick={() => setSelectedStaff(staff.id)}
-                className={`border p-6 rounded-lg cursor-pointer flex items-center gap-4 transition-all ${
-                  selectedStaff === staff.id
-                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-md'
-                    : 'border-border bg-card hover:border-primary/50'
-                }`}
-              >
-                <div className="w-16 h-16 bg-muted rounded-full flex-shrink-0 flex items-center justify-center text-3xl overflow-hidden shadow-inner border border-border">
-                  👩‍⚕️
-                </div>
-                <div>
-                  <h3 className="font-bold text-primary text-lg">{staff.firstName} {staff.lastName}</h3>
-                  <p className="text-sm font-medium text-foreground mt-1">{staff.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* --- CONTINUE BUTTON --- */}
-        <div className="flex justify-end border-t border-border pt-8 sticky bottom-4 bg-background/80 backdrop-blur-sm p-4 rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-8 sticky bottom-4 bg-background/80 backdrop-blur-sm p-4 rounded-xl">
+          <div className="text-sm">
+            <p className="font-bold text-primary">
+              {totalPeople} / {WORKER_COUNT} хүн (people)
+            </p>
+            {totalPeople > 0 && (
+              <p className="text-muted-foreground">Нийт: ₮{totalPrice.toLocaleString()}</p>
+            )}
+          </div>
           <button
             onClick={handleContinue}
-            disabled={!selectedService || !selectedStaff}
+            disabled={totalPeople === 0}
             className={`px-8 py-3 rounded-md text-lg font-bold transition-all shadow-md ${
-              selectedService && selectedStaff
+              totalPeople > 0
                 ? 'bg-primary text-primary-foreground hover:opacity-90 transform hover:-translate-y-0.5'
                 : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'
             }`}
@@ -146,5 +188,13 @@ export default function BookingStepOne() {
         
       </div>
     </div>
+  );
+}
+
+export default function BookingStepOne() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-primary">Loading...</div>}>
+      <BookingStepOneContent />
+    </Suspense>
   );
 }

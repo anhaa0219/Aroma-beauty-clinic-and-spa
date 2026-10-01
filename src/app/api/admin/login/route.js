@@ -7,7 +7,7 @@ export async function POST(req) {
 
     if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
       
-      // FIX: Added 'await' before cookies() for Next.js 15 support!
+     
       const cookieStore = await cookies();
       cookieStore.set('aroma_vip_pass', 'authenticated', {
         httpOnly: true,

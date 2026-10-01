@@ -12,14 +12,12 @@ function SuccessContent() {
   const orderId = searchParams.get('orderId');
 
   const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Nothing to load without an order ID
+  const [loading, setLoading] = useState(!!orderId);
 
   // Fetch the real booking details from MongoDB
   useEffect(() => {
-    if (!orderId) {
-      setLoading(false);
-      return;
-    }
+    if (!orderId) return;
 
     async function fetchBooking() {
       try {
@@ -83,7 +81,7 @@ function SuccessContent() {
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground mb-1">Time</p>
-              <p className="font-bold text-lg text-foreground">{booking.time}</p>
+              <p className="font-bold text-lg text-foreground">{booking.time}{booking.endTime ? ` – ${booking.endTime}` : ''}</p>
             </div>
           </div>
 
@@ -96,10 +94,18 @@ function SuccessContent() {
               <span className="text-muted-foreground">Service</span>
               <span className="font-semibold">{booking.serviceName}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Specialist</span>
-              <span className="font-semibold">{booking.staffName}</span>
-            </div>
+            {booking.people > 1 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">People</span>
+                <span className="font-semibold">{booking.people}</span>
+              </div>
+            )}
+            {booking.staffName && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Specialist</span>
+                <span className="font-semibold">{booking.staffName}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount Paid</span>
               <span className="font-semibold text-primary">₮{booking.price.toLocaleString()}</span>

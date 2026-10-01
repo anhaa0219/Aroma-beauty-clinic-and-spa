@@ -1,42 +1,47 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { servicesList, staffList } from '@/lib/data';
+import { describeItems, parseItems, toMinutes, toTime } from '@/lib/schedule';
 import Navbar from '@/components/layout/Navbar';
+import useCustomer from '@/hooks/useCustomer';
+import { formatPhone } from '@/lib/loyalty';
 
 function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Retrieve all data passed from previous steps
-  const serviceId = searchParams.get('serviceId');
-  const staffId = searchParams.get('staffId');
+  const items = parseItems(searchParams.get('items') || searchParams.get('serviceId'));
   const date = searchParams.get('date');
   const time = searchParams.get('time');
 
   // Look up the full details for display
-  const service = servicesList.find(s => s.id === serviceId);
-  const staff = staffList.find(s => s.id === staffId);
+  const order = items ? describeItems(items) : null;
+  const endTime = order && time ? toTime(toMinutes(time) + order.durationMinutes) : '';
 
-  // Form state for customer details
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  // Bookings belong to the logged-in customer (phone verified by SMS)
+  const customer = useCustomer();
+  const loginUrl = `/login?next=${encodeURIComponent(`/booking/payment?${searchParams}`)}`;
+  useEffect(() => {
+    if (customer.status === 'guest') router.replace(loginUrl);
+  }, [customer.status, router, loginUrl]);
+
+  // Name defaults to the one saved on the account until the customer edits it
+  const [nameInput, setNameInput] = useState(null);
+  const customerName = nameInput ?? customer.user?.name ?? '';
+  const customerPhone = customer.user?.phone || '';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSimulatePayment = async () => {
     setIsSubmitting(true);
 
+    // Service names, prices and durations are resolved on the server
     const bookingData = {
       customerName,
-      customerPhone,
-      serviceId,
-      serviceName: service?.name || 'Unknown Service',
-      staffId,
-      staffName: staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown Staff',
+      items,
       date,
       time,
-      price: service?.price || 0,
     };
 
     try {
@@ -50,6 +55,10 @@ function PaymentContent() {
       // Parse the JSON response from the database
       const data = await res.json();
 
+      if (res.status === 401) {
+        router.replace(loginUrl);
+        return;
+      }
       if (data.success && data.data?.orderId) {
         // SUCCESS: Redirect to the new confirmation page with the order ID
         router.push(`/booking/success?orderId=${data.data.orderId}`);
@@ -66,7 +75,7 @@ function PaymentContent() {
   };
 
   // If someone navigates here without selecting a service first
-  if (!serviceId || !date) {
+  if (!order || !date || !time) {
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 text-center">
         <p className="text-xl text-primary mb-4">Missing booking details.</p>
@@ -104,18 +113,15 @@ function PaymentContent() {
                 placeholder="e.g., Ankhbayar M."
                 className="w-full border border-border rounded-md p-3 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => setNameInput(e.target.value)}
               />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-foreground">Phone Number</label>
-              <input 
-                type="tel" 
-                placeholder="e.g., 99887766"
-                className="w-full border border-border rounded-md p-3 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-              />
+              <div className="w-full border border-border rounded-md p-3 bg-muted text-foreground flex items-center justify-between">
+                <span>{customerPhone ? `+976 ${formatPhone(customerPhone)}` : '…'}</span>
+                <span className="text-xs font-semibold text-emerald-700">✓ Баталгаажсан</span>
+              </div>
             </div>
           </div>
         </div>
@@ -125,13 +131,17 @@ function PaymentContent() {
           <h2 className="text-2xl font-bold mb-6 text-primary">Order Summary</h2>
           <div className="bg-primary/5 border border-primary/20 p-6 rounded-xl shadow-sm mb-6">
             <div className="space-y-3 mb-6 pb-6 border-b border-primary/10">
+              {order.lines.map((l) => (
+                <div key={l.serviceId} className="flex justify-between gap-4">
+                  <span className="font-medium">
+                    {l.serviceName} {l.quantity > 1 && `×${l.quantity}`}
+                  </span>
+                  <span className="font-medium whitespace-nowrap">₮{(l.price * l.quantity).toLocaleString()}</span>
+                </div>
+              ))}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Service:</span>
-                <span className="font-medium">{service?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Specialist:</span>
-                <span className="font-medium">{staff?.firstName} {staff?.lastName}</span>
+                <span className="text-muted-foreground">People:</span>
+                <span className="font-medium">{order.people} хүн</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date:</span>
@@ -139,13 +149,17 @@ function PaymentContent() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Time:</span>
-                <span className="font-medium">{time}</span>
+                <span className="font-medium">{time} – {endTime}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Duration:</span>
+                <span className="font-medium">{order.durationMinutes} мин</span>
               </div>
             </div>
             
             <div className="flex justify-between items-center text-xl font-extrabold text-primary">
               <span>Total to Pay:</span>
-              <span>₮{service?.price.toLocaleString()}</span>
+              <span>₮{order.totalPrice.toLocaleString()}</span>
             </div>
           </div>
 

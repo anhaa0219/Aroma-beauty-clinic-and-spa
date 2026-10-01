@@ -1,6 +1,3 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
 
 // 1. Updated Data: Removed phone/email/images, added full 'details' array
 const staffList = [
@@ -66,8 +63,6 @@ const staffList = [
 ];
 
 export default function StaffPage() {
-  const router = useRouter();
-
   return (
     <div className="flex flex-col items-center py-12 px-4 max-w-6xl mx-auto text-foreground">
       <h1 className="text-4xl font-extrabold tracking-tight mb-10 text-primary">Манай баг хамт олон</h1>
@@ -89,14 +84,6 @@ export default function StaffPage() {
                 <h2 className="text-2xl font-bold text-primary">{staff.firstName} {staff.lastName}</h2>
                 <p className="text-foreground font-medium text-lg mt-1">{staff.role}</p>
               </div>
-
-              {/* Desktop Book Button */}
-              <button 
-                onClick={() => router.push(`/booking/time?staffId=${staff.id}`)}
-                className="hidden md:block bg-primary text-primary-foreground px-6 py-3 rounded-md text-sm font-bold hover:opacity-90 transition-opacity shadow-sm"
-              >
-                Цаг захиалах
-              </button>
             </div>
 
             {/* Bottom Section: Full History & Details */}
@@ -112,14 +99,6 @@ export default function StaffPage() {
                   </li>
                 ))}
               </ul>
-
-              {/* Mobile Book Button */}
-              <button 
-                onClick={() => router.push(`/booking/time?staffId=${staff.id}`)}
-                className="mt-8 w-full md:hidden bg-primary text-primary-foreground px-6 py-3 rounded-md text-sm font-bold hover:opacity-90 transition-opacity shadow-sm"
-              >
-                {staff.firstName}-д цаг захиалах
-              </button>
             </div>
 
           </div>

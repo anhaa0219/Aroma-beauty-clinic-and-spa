@@ -1,116 +1,155 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { ArrowRight, Crown, Menu, UserRound, X } from 'lucide-react';
+import useCustomer from '@/hooks/useCustomer';
+import BrandLogo from '@/components/layout/BrandLogo';
+
+const NAV_LINKS = [
+  { name: 'Treatments', path: '/services' },
+  { name: 'SoCheck', path: '/socheck' },
+  { name: 'Clinic', path: '/clinic' },
+  { name: 'Our Team', path: '/staff' },
+  { name: 'About', path: '/about' },
+  { name: 'Contact', path: '/contact' },
+];
+
+// Login link for guests, account link (with Loyalty Member crown) for logged-in customers
+function AccountLink({ customer, onClick, className = '' }) {
+  if (customer.status === 'loading') {
+    return <span className={`h-10 w-28 rounded-full bg-muted/60 animate-pulse ${className}`} />;
+  }
+  if (customer.status !== 'customer') {
+    return (
+      <Link
+        href="/login"
+        onClick={onClick}
+        className={`h-10 inline-flex items-center justify-center gap-2 px-4 rounded-full text-sm font-semibold text-primary border border-primary/30 hover:bg-primary/5 whitespace-nowrap transition-colors ${className}`}
+      >
+        <UserRound className="w-4 h-4" /> Нэвтрэх
+      </Link>
+    );
+  }
+  const { user, loyalty } = customer;
+  return (
+    <Link
+      href="/account"
+      onClick={onClick}
+      className={`h-10 inline-flex items-center justify-center gap-2 pl-1.5 pr-4 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+        loyalty?.isMember
+          ? 'bg-linear-to-r from-amber-100 to-amber-50 text-amber-900 border border-amber-300'
+          : 'bg-muted text-foreground border border-border hover:border-primary/40'
+      } ${className}`}
+    >
+      <span
+        className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+          loyalty?.isMember ? 'bg-amber-400 text-white' : 'bg-primary text-primary-foreground'
+        }`}
+      >
+        {loyalty?.isMember ? <Crown className="w-4 h-4" /> : <UserRound className="w-4 h-4" />}
+      </span>
+      {loyalty?.isMember ? (
+        <span className="leading-none text-left">
+          <span className="block text-[13px] font-bold">Loyalty Member</span>
+          <span className="block text-[10px] font-medium opacity-75 mt-0.5">{loyalty.daysLeft} хоног үлдсэн</span>
+        </span>
+      ) : (
+        <span className="truncate max-w-36">{user.name || 'Миний бүртгэл'}</span>
+      )}
+    </Link>
+  );
+}
+
+function BookNowButton({ onClick, className = '' }) {
+  return (
+    <Link
+      href="/booking"
+      onClick={onClick}
+      className={`group relative overflow-hidden h-10 inline-flex items-center justify-center gap-2 px-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 active:scale-95 transition-all whitespace-nowrap ${className}`}
+    >
+      <span className="relative z-10">Book Now</span>
+      <ArrowRight className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+      {/* Shiny sweep */}
+      <span className="absolute inset-0 translate-x-[-150%] bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-30deg] group-hover:translate-x-[150%] transition-transform duration-700 ease-in-out" />
+    </Link>
+  );
+}
 
 export default function Navbar() {
-  const router = useRouter();
-  
-  // State to track if the mobile menu is open
+  const pathname = usePathname();
+  const customer = useCustomer();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const closeMenu = () => setIsMobileMenuOpen(false);
 
-  const navLinks = [
-    { name: 'Treatments', path: '/services' },
-    { name: 'SoCheck', path: '/socheck' },
-    { name: 'Clinic', path: '/clinic' },
-    { name: 'Our Team', path: '/staff' },
-    { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' }
-  ];
-
-  // Helper function to handle routing and close the menu on mobile
-  const handleNavigation = (path) => {
-    setIsMobileMenuOpen(false);
-    router.push(path);
-  };
+  const isActive = (path) => pathname === path || pathname?.startsWith(`${path}/`);
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-lg border-b border-border/40 shadow-sm transition-all duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
-        
+    <nav className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-lg border-b border-border/40 shadow-sm">
+      <div className="max-w-7xl mx-auto h-16 md:h-20 px-4 md:px-8 flex items-center justify-between gap-6">
         {/* Brand Logo */}
-        <img 
-          src="/logo-removebg-preview.png" 
-          alt="Aroma Beauty Clinic & Spa"
-          onClick={() => handleNavigation('/')} 
-          className="h-12 md:h-14 w-auto cursor-pointer object-contain hover:opacity-80 transition-opacity"
-        />
+        <Link href="/" onClick={closeMenu} className="flex items-center shrink-0 hover:opacity-80 transition-opacity">
+          <BrandLogo variant="light" priority className="h-12 md:h-16" />
+        </Link>
 
-        {/* --- DESKTOP NAVIGATION (Hidden on Mobile) --- */}
-        <div className="hidden md:flex items-center gap-5 lg:gap-8">
-          {navLinks.map((link) => (
-            <span 
-              key={link.name}
-              onClick={() => handleNavigation(link.path)} 
-              className="text-sm font-medium cursor-pointer text-foreground/80 hover:text-primary transition-colors relative group whitespace-nowrap"
+        {/* --- DESKTOP LINKS --- */}
+        <div className="hidden lg:flex items-center gap-1">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.path}
+              href={link.path}
+              className={`h-10 inline-flex items-center px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                isActive(link.path)
+                  ? 'bg-primary/10 text-primary font-semibold'
+                  : 'text-foreground/75 hover:text-primary hover:bg-primary/5'
+              }`}
             >
               {link.name}
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full rounded-full"></span>
-            </span>
+            </Link>
           ))}
-          
-          <button 
-  onClick={() => handleNavigation('/booking')} 
-  className="relative overflow-hidden group bg-primary text-primary-foreground px-8 py-3 rounded-full text-base font-bold cursor-pointer mt-6 mb-4 w-full transition-all duration-300 active:scale-95 shadow-md"
->
-  {/* Button Text & Animated Arrow */}
-  <span className="relative z-10 flex items-center justify-center gap-2">
-    Book Now 
-    <span className="opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 ease-out">
-      &rarr;
-    </span>
-  </span>
-  
-  {/* The Shiny Sweep Effect */}
-  <div className="absolute inset-0 -translate-x-[150%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-30deg] group-hover:translate-x-[150%] transition-transform duration-700 ease-in-out z-0"></div>
-</button>
         </div>
 
-        {/* --- MOBILE MENU TOGGLE BUTTON (Hidden on Desktop) --- */}
-        <button 
-          className="md:hidden p-2 text-foreground focus:outline-none"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        {/* --- DESKTOP ACTIONS --- */}
+        <div className="hidden lg:flex items-center gap-3 shrink-0">
+          <AccountLink customer={customer} />
+          <BookNowButton />
+        </div>
+
+        {/* --- MOBILE TOGGLE --- */}
+        <button
+          className="lg:hidden w-10 h-10 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted transition-colors"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
           aria-label="Toggle menu"
+          aria-expanded={isMobileMenuOpen}
         >
-          {isMobileMenuOpen ? (
-            // 'X' Close Icon
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            // Hamburger Icon
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
-      {/* --- MOBILE DROPDOWN MENU --- */}
+      {/* --- MOBILE MENU --- */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-xl flex flex-col px-6 py-4">
-          
-          {/* Menu Links with Light Separators */}
-          <div className="flex flex-col divide-y divide-border/40">
-            {navLinks.map((link) => (
-              <span 
-                key={link.name}
-                onClick={() => handleNavigation(link.path)} 
-                className="text-lg font-medium cursor-pointer text-foreground/90 hover:text-primary transition-colors py-4 text-center"
+        <div className="lg:hidden absolute top-full left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-xl px-4 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-col gap-1">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.path}
+                href={link.path}
+                onClick={closeMenu}
+                className={`flex items-center justify-center h-12 rounded-xl text-base font-medium transition-colors ${
+                  isActive(link.path)
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-foreground/90 hover:bg-muted hover:text-primary'
+                }`}
               >
                 {link.name}
-              </span>
+              </Link>
             ))}
           </div>
-
-          {/* Book Now Button */}
-          <button 
-  onClick={() => handleNavigation('/booking')} 
-  className=" bg-primary text-primary-foreground px-8 py-3 rounded-full text-base font-bold cursor-pointer mt-6 mb-4 w-full transition-all duration-300 ease-out hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-1 active:translate-y-0 active:scale-95"
->
-  Book Now
-</button>
-         
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-border/50">
+            <AccountLink customer={customer} onClick={closeMenu} className="w-full h-12" />
+            <BookNowButton onClick={closeMenu} className="w-full h-12 text-base" />
+          </div>
         </div>
       )}
     </nav>
