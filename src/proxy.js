@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ADMIN_COOKIE, verifyAdminToken } from '@/lib/adminAuth';
 
 export function proxy(req) {
   const url = req.nextUrl;
@@ -8,11 +9,10 @@ export function proxy(req) {
     (url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login')) ||
     (url.pathname.startsWith('/api/admin') && !url.pathname.startsWith('/api/admin/login'))
   ) {
-    // Check for our custom VIP cookie
-    const session = req.cookies.get('aroma_vip_pass');
+    // Only a cookie signed with our secret counts — a hand-typed value cannot pass.
+    const token = req.cookies.get(ADMIN_COOKIE)?.value;
 
-    // If no cookie, redirect them to the beautiful login page
-    if (!session || session.value !== 'authenticated') {
+    if (!verifyAdminToken(token)) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }
   }
