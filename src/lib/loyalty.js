@@ -1,4 +1,11 @@
-// Phone numbers and Loyalty Member rules — pure functions, safe on both server and client
+// Email/phone helpers and Loyalty Member rules — pure functions, safe on both server and client
+
+// --- Email (the login identity) ---
+// Lower-cased and trimmed; null when it doesn't look like an email address.
+export function normalizeEmail(input) {
+  const email = String(input || '').trim().toLowerCase();
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
 
 // --- Mongolian phone numbers ---
 // Local mobile numbers are 8 digits starting with 6–9 (e.g. 99112233, 88xxxxxx, 69xxxxxx).

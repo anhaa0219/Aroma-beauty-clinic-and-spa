@@ -143,6 +143,11 @@ function BookingRow({ booking, loyalty, now, showDate, onStatus, onComplete }) {
             {booking.customerPhone}
           </a>
         )}
+        {booking.customerEmail && (
+          <p className="text-xs text-muted-foreground truncate" title={booking.customerEmail}>
+            {booking.customerEmail}
+          </p>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${source.cls}`}>
             <source.Icon className="w-3 h-3" />
@@ -324,13 +329,13 @@ export default function AdminDashboard() {
 
   const closeDrawer = useCallback(() => setDrawer(null), []);
 
-  // Loyalty Member status per customer phone, from their whole booking history
-  const bookingsByPhone = {};
+  // Loyalty Member status per customer account (email — the verified identity), from their whole history
+  const bookingsByEmail = {};
   for (const b of bookings) {
-    if (b.customerPhone) (bookingsByPhone[b.customerPhone] ||= []).push(b);
+    if (b.customerEmail) (bookingsByEmail[b.customerEmail] ||= []).push(b);
   }
-  const loyaltyByPhone = Object.fromEntries(
-    Object.entries(bookingsByPhone).map(([phone, list]) => [phone, computeLoyalty(list)])
+  const loyaltyByEmail = Object.fromEntries(
+    Object.entries(bookingsByEmail).map(([email, list]) => [email, computeLoyalty(list)])
   );
 
   // --- Derived data for the selected day ---
@@ -357,7 +362,7 @@ export default function AdminDashboard() {
   const visible = query
     ? bookings
         .filter((b) =>
-          [b.customerName, b.customerPhone, b.orderId].some((v) => v?.toLowerCase().includes(query))
+          [b.customerName, b.customerPhone, b.customerEmail, b.orderId].some((v) => v?.toLowerCase().includes(query))
         )
         .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
     : tab === 'overdue'
@@ -620,7 +625,7 @@ export default function AdminDashboard() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Нэр, утас, захиалгын дугаар..."
+                placeholder="Нэр, утас, имэйл, захиалгын дугаар..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-card border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none shadow-sm"
               />
             </div>
@@ -661,7 +666,7 @@ export default function AdminDashboard() {
                 <BookingRow
                   key={b._id}
                   booking={b}
-                  loyalty={loyaltyByPhone[b.customerPhone]}
+                  loyalty={loyaltyByEmail[b.customerEmail]}
                   now={now}
                   showDate={!!query || tab === 'overdue'}
                   onStatus={updateStatus}
@@ -678,7 +683,7 @@ export default function AdminDashboard() {
           today={today}
           presetDate={drawer.date}
           presetTime={drawer.time}
-          loyaltyByPhone={loyaltyByPhone}
+          loyaltyByEmail={loyaltyByEmail}
           onClose={closeDrawer}
           onCreated={handleCreated}
         />

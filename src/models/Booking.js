@@ -25,7 +25,10 @@ const BookingSchema = new mongoose.Schema(
   {
     orderId: { type: String, required: true, unique: true },
     customerName: { type: String, required: true, trim: true },
-    customerPhone: { type: String, trim: true }, // Normalized 8-digit number; links bookings to the customer's account and Loyalty Member progress
+    customerPhone: { type: String, trim: true }, // Normalized 8-digit number, for contacting the customer
+    // Links the booking to a customer account. Email is verified at login, so history and
+    // Loyalty Member progress are matched by userId/email — never by the (unverified) phone.
+    customerEmail: { type: String, trim: true, lowercase: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Set when booked by a logged-in customer
     source: { type: String, enum: ['online', 'phone', 'walk-in'], default: 'online' },
     note: { type: String, trim: true },
@@ -56,6 +59,8 @@ const BookingSchema = new mongoose.Schema(
 // Speeds up the per-day availability lookups
 BookingSchema.index({ date: 1, status: 1 });
 // Customer history / Loyalty Member lookups
+BookingSchema.index({ customerEmail: 1 });
+BookingSchema.index({ userId: 1 });
 BookingSchema.index({ customerPhone: 1 });
 
 // Re-register on reload so schema edits apply in `next dev`

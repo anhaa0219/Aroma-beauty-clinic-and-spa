@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Crown, Footprints, Phone, Search, X, Zap } from 'lucide-react';
+import { Crown, Footprints, Link2, Phone, Search, UserCheck, X, Zap } from 'lucide-react';
 import { servicesList, clinicList } from '@/lib/data';
 import CalendarPicker from '@/components/booking/CalendarPicker';
 import TimeSlotPicker from '@/components/booking/TimeSlotPicker';
 import { BOOKING_WINDOW_DAYS, WORKER_COUNT, describeItems, serializeItems } from '@/lib/schedule';
 import { formatDateMn, formatMoney } from '@/lib/formatters';
-import { normalizePhone } from '@/lib/loyalty';
+import { normalizeEmail, normalizePhone } from '@/lib/loyalty';
 
 const ALL_SERVICES = [...servicesList, ...clinicList.map((s) => ({ ...s, category: 'Clinic' }))];
 const CATEGORIES = [
@@ -46,10 +46,13 @@ function Section({ step, title, children, aside }) {
  * Slide-over form for booking phone-call and walk-in clients.
  * Mounted fresh each time it opens, so presets only seed the initial state.
  */
-export default function NewBookingDrawer({ today, presetDate, presetTime, loyaltyByPhone = {}, onClose, onCreated }) {
+export default function NewBookingDrawer({ today, presetDate, presetTime, loyaltyByEmail = {}, onClose, onCreated }) {
   const [source, setSource] = useState(presetDate === today && !presetTime ? 'walk-in' : 'phone');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [lookup, setLookup] = useState({ key: '', customer: null }); // registered account found by phone/email
+  const [linkAccount, setLinkAccount] = useState(true);
   const [note, setNote] = useState('');
   const [quantities, setQuantities] = useState({});
   const [search, setSearch] = useState('');
@@ -69,7 +72,15 @@ export default function NewBookingDrawer({ today, presetDate, presetTime, loyalt
   const selectedSlot = slots?.find((s) => s.time === time);
   const normalizedPhone = normalizePhone(customerPhone);
   const phoneInvalid = !!customerPhone.trim() && !normalizedPhone;
-  const knownMember = normalizedPhone ? loyaltyByPhone[normalizedPhone] : null;
+  const normalizedEmail = normalizeEmail(customerEmail);
+  const emailInvalid = !!customerEmail.trim() && !normalizedEmail;
+
+  // Look the customer up by email (preferred) or phone; only a result for the current input counts
+  const lookupKey = normalizedEmail ? `email=${normalizedEmail}` : normalizedPhone ? `phone=${normalizedPhone}` : '';
+  const match = lookup.key === lookupKey ? lookup.customer : null;
+  // The booking is linked to this email → it shows in that customer's history and Loyalty Member
+  const linkedEmail = match && linkAccount ? match.email : normalizedEmail;
+  const knownMember = linkedEmail ? loyaltyByEmail[linkedEmail] : null;
 
   // Close on Escape
   useEffect(() => {
@@ -77,6 +88,25 @@ export default function NewBookingDrawer({ today, presetDate, presetTime, loyalt
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Find a registered account for the typed phone/email (small delay while typing)
+  useEffect(() => {
+    if (!lookupKey) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/customers?${lookupKey}`, { signal: controller.signal });
+        const data = await res.json();
+        setLookup({ key: lookupKey, customer: data.success ? data.customer : null });
+      } catch {
+        /* lookup is only a convenience */
+      }
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [lookupKey]);
 
   // Re-read availability whenever the date or the treatments change
   useEffect(() => {
@@ -124,6 +154,7 @@ export default function NewBookingDrawer({ today, presetDate, presetTime, loyalt
     !!customerName.trim() &&
     (!phoneRequired || !!normalizedPhone) &&
     !phoneInvalid &&
+    !emailInvalid &&
     people > 0 &&
     !!selectedSlot?.available &&
     !loadingSlots &&
@@ -138,7 +169,16 @@ export default function NewBookingDrawer({ today, presetDate, presetTime, loyalt
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerName, customerPhone, note, source, items, date, time }),
+        body: JSON.stringify({
+          customerName,
+          customerPhone,
+          customerEmail: linkedEmail || undefined,
+          note,
+          source,
+          items,
+          date,
+          time,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -226,6 +266,36 @@ export default function NewBookingDrawer({ today, presetDate, presetTime, loyalt
             </div>
             {phoneInvalid && (
               <p className="text-xs text-rose-600 -mt-1">8 оронтой Монгол дугаар оруулна уу (жишээ нь 9911 2233)</p>
+            )}
+            <input
+              className={inputClass}
+              type="email"
+              placeholder="Имэйл (заавал биш) — бүртгэлтэй үйлчлүүлэгчид холбоно"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+            />
+            {emailInvalid && <p className="text-xs text-rose-600 -mt-1">Имэйл хаяг буруу байна</p>}
+            {match && (
+              <label className="flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={linkAccount}
+                  onChange={(e) => setLinkAccount(e.target.checked)}
+                  className="mt-1 accent-emerald-600"
+                />
+                <span className="text-sm">
+                  <span className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <UserCheck className="w-4 h-4" /> Бүртгэлтэй үйлчлүүлэгч
+                  </span>
+                  <span className="block text-emerald-800">
+                    {match.name || '—'} · {match.email}
+                    {match.phone && ` · ${match.phone}`}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-emerald-700 mt-0.5">
+                    <Link2 className="w-3 h-3" /> Энэ бүртгэлд холбох (түүх, Loyalty-д тооцогдоно)
+                  </span>
+                </span>
+              </label>
             )}
             {knownMember?.isMember && (
               <p className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">

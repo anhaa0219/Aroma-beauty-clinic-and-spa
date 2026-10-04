@@ -21,34 +21,41 @@ export async function GET(req) {
 }
 
 // POST: Create an online group booking.
-// Logged-in customers: phone comes from their verified session.
-// Guests: they type their phone in the form (not verified, but they can claim the
-// booking's history/Loyalty progress later by logging in with that same number).
-// body: { customerName, customerPhone?, date, time, items: [{ serviceId, quantity }] }
+// Logged-in customers: email comes from their verified session; phone from their profile
+// (or the form, if they haven't saved one yet).
+// Guests: they type name, phone and email. The email links the booking to their account
+// when they later log in with it (email login is verified), so history/Loyalty follow it.
+// body: { customerName, customerPhone, customerEmail?, date, time, items: [{ serviceId, quantity }] }
 export async function POST(req) {
   try {
     const session = await getSession();
     const body = await req.json();
-    const customerName = String(body.customerName || '').trim();
+
+    let user = null;
+    if (session) {
+      await connectToDatabase();
+      user = await User.findById(session.uid).lean();
+    }
 
     const { status, body: result } = await createBooking({
-      customerName,
-      customerPhone: session ? session.phone : body.customerPhone, // session phone is trusted; guest phone validated in service
-      userId: session ? session.uid : undefined,
+      customerName: body.customerName,
+      customerPhone: user?.phone || body.customerPhone,
+      customerEmail: user ? user.email : body.customerEmail, // session email is trusted
+      userId: user?._id,
       items: body.items ?? (body.serviceId ? [{ serviceId: body.serviceId, quantity: 1 }] : null),
       date: body.date,
       time: body.time,
       source: 'online',
+      requireEmail: true,
     });
 
     // Remember the name on the logged-in customer's profile for next time
-    if (result.success && session) {
-      await connectToDatabase();
-      await User.updateOne({ _id: session.uid, $or: [{ name: null }, { name: '' }] }, { name: customerName });
+    if (result.success && user && !user.name) {
+      await User.updateOne({ _id: user._id }, { name: result.data.customerName });
     }
     return NextResponse.json(result, { status });
   } catch (error) {
     console.error('Booking creation error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Something went wrong' }, { status: 500 });
   }
 }

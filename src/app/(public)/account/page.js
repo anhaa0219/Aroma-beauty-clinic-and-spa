@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CalendarCheck, Check, Info, LogOut, Pencil, Phone, Plus, Users } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { CalendarCheck, Check, Info, Lock, LogOut, Mail, Pencil, Phone, Plus, UserRound, Users } from 'lucide-react';
 import useCustomer from '@/hooks/useCustomer';
 import LoyaltyCard from '@/components/account/LoyaltyCard';
-import { COUNTED_STATUSES, LOYALTY_RULES, formatPhone } from '@/lib/loyalty';
+import { COUNTED_STATUSES, LOYALTY_RULES, formatPhone, normalizePhone } from '@/lib/loyalty';
 import { formatDateMn, formatMoney } from '@/lib/formatters';
 import { ACTIVE_STATUSES, salonNow } from '@/lib/schedule';
 
@@ -45,12 +45,22 @@ function BookingItem({ booking }) {
   );
 }
 
-export default function AccountPage() {
+// Only redirect back into this site after finishing the profile
+const safeNext = (next) =>
+  next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') && next !== '/account' ? next : null;
+
+function AccountContent() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { status, user, loyalty, bookings, refresh, logout } = useCustomer({ withBookings: true });
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [tab, setTab] = useState('upcoming');
+  // One-time profile setup (name + phone) for new accounts
+  const [setupName, setSetupName] = useState('');
+  const [setupPhone, setSetupPhone] = useState('');
+  const [setupError, setSetupError] = useState('');
+  const [setupBusy, setSetupBusy] = useState(false);
 
   useEffect(() => {
     if (status === 'guest') router.replace('/login?next=/account');
@@ -94,6 +104,38 @@ export default function AccountPage() {
     }
   };
 
+  const needsSetup = !user.name || !user.phone;
+  const canSaveSetup = (user.name || setupName.trim()) && (user.phone || normalizePhone(setupPhone));
+
+  const saveSetup = async (e) => {
+    e.preventDefault();
+    if (!canSaveSetup) return;
+    setSetupBusy(true);
+    setSetupError('');
+    const payload = {};
+    if (!user.name) payload.name = setupName;
+    if (!user.phone) payload.phone = setupPhone;
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setSetupError(data.error || 'Хадгалж чадсангүй');
+        return;
+      }
+      await refresh();
+      const next = safeNext(searchParams.get('next'));
+      if (next) router.replace(next);
+    } catch {
+      setSetupError('Сүлжээний алдаа. Дахин оролдоно уу.');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     router.replace('/');
@@ -133,8 +175,14 @@ export default function AccountPage() {
             </button>
           )}
           <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-            <Phone className="w-3.5 h-3.5" /> +976 {formatPhone(user.phone)}
+            <Mail className="w-3.5 h-3.5" /> {user.email}
           </p>
+          {user.phone && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5" title="Утасны дугаар өөрчлөх бол салонтой холбогдоно уу">
+              <Phone className="w-3.5 h-3.5" /> +976 {formatPhone(user.phone)}
+              <Lock className="w-3 h-3 opacity-60" />
+            </p>
+          )}
         </div>
         <button
           onClick={handleLogout}
@@ -143,6 +191,69 @@ export default function AccountPage() {
           <LogOut className="w-4 h-4" /> Гарах
         </button>
       </div>
+
+      {/* One-time profile setup */}
+      {needsSetup && (
+        <form
+          onSubmit={saveSetup}
+          className="rounded-3xl border-2 border-primary/30 bg-primary/5 p-6 md:p-8 space-y-4"
+        >
+          <div className="flex items-start gap-3">
+            <span className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+              <UserRound className="w-5 h-5" />
+            </span>
+            <div>
+              <h2 className="text-lg font-extrabold text-foreground">Профайлаа гүйцээнэ үү</h2>
+              <p className="text-sm text-muted-foreground">
+                Захиалга хийх, салонтой холбогдоход хэрэгтэй. Утасны дугаарыг нэг удаа хадгална.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {!user.name && (
+              <label className="block">
+                <span className="block text-sm font-semibold mb-1.5">Нэр</span>
+                <input
+                  value={setupName}
+                  onChange={(e) => setSetupName(e.target.value)}
+                  placeholder="Таны нэр"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </label>
+            )}
+            {!user.phone && (
+              <label className="block">
+                <span className="block text-sm font-semibold mb-1.5">Утасны дугаар</span>
+                <div className="flex items-center rounded-xl border border-border bg-background focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                  <span className="pl-3 pr-2 text-muted-foreground font-semibold border-r border-border">+976</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={12}
+                    value={setupPhone}
+                    onChange={(e) => setSetupPhone(e.target.value)}
+                    placeholder="9911 2233"
+                    className="flex-1 min-w-0 px-3 py-3 bg-transparent outline-none tracking-wider"
+                  />
+                </div>
+              </label>
+            )}
+          </div>
+          {!user.phone && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Lock className="w-3 h-3" /> Хадгалсны дараа дугаараа өөрчлөх бол салонтой холбогдоно уу.
+            </p>
+          )}
+          {setupError && <p className="text-sm text-rose-600 font-medium">{setupError}</p>}
+          <button
+            type="submit"
+            disabled={!canSaveSetup || setupBusy}
+            className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            {setupBusy ? 'Хадгалж байна...' : 'Хадгалах'}
+          </button>
+        </form>
+      )}
 
       {/* Loyalty Member */}
       <LoyaltyCard loyalty={loyalty} />
@@ -213,5 +324,19 @@ export default function AccountPage() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-4xl mx-auto px-4 py-16 space-y-4">
+          <div className="h-24 rounded-3xl bg-muted animate-pulse" />
+        </div>
+      }
+    >
+      <AccountContent />
+    </Suspense>
   );
 }

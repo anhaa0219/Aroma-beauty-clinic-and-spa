@@ -21,10 +21,12 @@ export async function GET(req, { params }) {
     }
 
     await connectToDatabase();
-    const booking = await Booking.findOne({ orderId }).lean();
+    const booking = await Booking.findOne({ orderId: String(orderId) }).select('-note').lean();
 
     // Same 404 whether the booking is missing or just not the viewer's own
-    if (!booking || (!isAdmin && booking.customerPhone !== session?.phone)) {
+    const isOwner =
+      !!session && (String(booking?.userId) === session.uid || booking?.customerEmail === session.email);
+    if (!booking || (!isAdmin && !isOwner)) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 

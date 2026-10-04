@@ -14,9 +14,9 @@ import {
   toMinutes,
   toTime,
 } from '@/lib/schedule';
-import { normalizePhone } from '@/lib/loyalty';
+import { normalizeEmail, normalizePhone } from '@/lib/loyalty';
 
-// Anti-abuse: one phone can hold at most this many upcoming active (unpaid) online bookings
+// Anti-abuse: one phone or email can hold at most this many upcoming active (unpaid) online bookings
 export const MAX_UPCOMING_PER_PHONE = 6;
 
 export const activeBookingsOn = (date) =>
@@ -64,8 +64,9 @@ export async function getAvailability({ date, itemsText, graceMinutes = 0 }) {
  * Names, durations and prices always come from our own data, never from the client.
  */
 export async function createBooking({
-  customerName,
+  customerName: rawName,
   customerPhone: rawPhone,
+  customerEmail: rawEmail,
   userId,
   items,
   date,
@@ -73,15 +74,26 @@ export async function createBooking({
   source = 'online',
   note,
   requirePhone = true,
+  requireEmail = false,
   graceMinutes = 0,
 }) {
-  if (!customerName?.trim() || (requirePhone && !rawPhone?.trim()) || !items || !date || !time) {
+  // Only plain strings are accepted (an object here could otherwise crash or alter a DB query)
+  const text = (v) => (typeof v === 'string' ? v.trim() : '');
+  const customerName = text(rawName).slice(0, 80);
+  const phoneText = text(rawPhone);
+  const emailText = text(rawEmail);
+
+  if (!customerName || (requirePhone && !phoneText) || (requireEmail && !emailText) || !items || !date || !time) {
     return fail(400, 'Missing required booking fields');
   }
-  // Same 8-digit format as customer logins, so the booking counts toward their Loyalty Member progress
-  const customerPhone = rawPhone?.trim() ? normalizePhone(rawPhone) : undefined;
-  if (rawPhone?.trim() && !customerPhone) {
+  const customerPhone = phoneText ? normalizePhone(phoneText) : undefined;
+  if (phoneText && !customerPhone) {
     return fail(400, 'Утасны дугаар буруу байна (8 оронтой Монгол дугаар)');
+  }
+  // The email links the booking to the customer's account (history + Loyalty Member)
+  const customerEmail = emailText ? normalizeEmail(emailText) : undefined;
+  if (emailText && !customerEmail) {
+    return fail(400, 'Имэйл хаяг буруу байна');
   }
 
   const validItems = normalizeItems(items);
@@ -93,18 +105,19 @@ export async function createBooking({
   await connectToDatabase();
   await dropLegacyIndex();
 
-  // Guest/online checkout has no login gate, so cap how many upcoming bookings one phone can hold
-  if (source === 'online' && customerPhone) {
+  // Guest/online checkout has no login gate, so cap how many upcoming bookings one phone or email can hold
+  const owners = [customerPhone && { customerPhone }, customerEmail && { customerEmail }].filter(Boolean);
+  if (source === 'online' && owners.length) {
     const today = salonNow().date;
     const upcoming = await Booking.countDocuments({
-      customerPhone,
+      $or: owners,
       status: { $in: ACTIVE_STATUSES },
       date: { $gte: today },
     });
     if (upcoming >= MAX_UPCOMING_PER_PHONE) {
       return fail(
         429,
-        `Энэ дугаар дээр ${MAX_UPCOMING_PER_PHONE} идэвхтэй захиалга байна. Өмнөх захиалгаа ашигласны дараа дахин захиална уу.`
+        `Танд ${MAX_UPCOMING_PER_PHONE} идэвхтэй захиалга байна. Өмнөх захиалгаа ашигласны дараа дахин захиална уу.`
       );
     }
   }
@@ -120,9 +133,10 @@ export async function createBooking({
     orderId,
     customerName,
     customerPhone,
+    customerEmail,
     userId,
     source,
-    note,
+    note: text(note).slice(0, 300) || undefined,
     items: order.lines,
     people: order.people,
     serviceId: order.lines[0].serviceId,

@@ -30,6 +30,7 @@ export async function POST(req) {
     const { status, body: result } = await createBooking({
       customerName: body.customerName,
       customerPhone: body.customerPhone,
+      customerEmail: body.customerEmail, // set when the admin links the booking to a registered account
       items: body.items,
       date: body.date,
       time: body.time,
@@ -41,7 +42,7 @@ export async function POST(req) {
     return NextResponse.json(result, { status });
   } catch (error) {
     console.error('Admin Booking Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Something went wrong' }, { status: 500 });
   }
 }
 
@@ -53,7 +54,7 @@ export async function PATCH(req) {
     await connectToDatabase();
     const { orderId, status, workerIds } = await req.json();
 
-    if (!orderId || !ADMIN_STATUSES.includes(status)) {
+    if (typeof orderId !== 'string' || !orderId || !ADMIN_STATUSES.includes(status)) {
       return NextResponse.json({ success: false, error: 'Missing orderId or invalid status' }, { status: 400 });
     }
 

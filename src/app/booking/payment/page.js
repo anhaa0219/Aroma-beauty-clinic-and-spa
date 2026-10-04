@@ -6,7 +6,7 @@ import { ShieldCheck } from 'lucide-react';
 import { describeItems, parseItems, toMinutes, toTime } from '@/lib/schedule';
 import Navbar from '@/components/layout/Navbar';
 import useCustomer from '@/hooks/useCustomer';
-import { formatPhone, normalizePhone } from '@/lib/loyalty';
+import { formatPhone, normalizeEmail, normalizePhone } from '@/lib/loyalty';
 
 function PaymentContent() {
   const router = useRouter();
@@ -20,25 +20,29 @@ function PaymentContent() {
   const order = items ? describeItems(items) : null;
   const endTime = order && time ? toTime(toMinutes(time) + order.durationMinutes) : '';
 
-  // Guest checkout: no login required. If logged in, name/phone come from the account.
+  // Guest checkout: no login required. If logged in, name/email/phone come from the account.
   const customer = useCustomer();
   const loggedIn = customer.status === 'customer';
+  const savedPhone = loggedIn ? customer.user?.phone || '' : '';
 
   const [nameInput, setNameInput] = useState(null);
   const [phoneInput, setPhoneInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const customerName = nameInput ?? customer.user?.name ?? '';
-  const customerPhone = loggedIn ? customer.user?.phone || '' : normalizePhone(phoneInput);
+  const customerPhone = savedPhone || normalizePhone(phoneInput);
+  // The email links this booking to the customer's account (history + Loyalty Member)
+  const customerEmail = loggedIn ? customer.user?.email || '' : normalizeEmail(emailInput);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canSubmit = !!customerName.trim() && !!customerPhone && !isSubmitting;
+  const canSubmit = !!customerName.trim() && !!customerPhone && !!customerEmail && !isSubmitting;
 
   const handleSimulatePayment = async () => {
     if (!canSubmit) return;
     setIsSubmitting(true);
 
     // Service names, prices and durations are resolved on the server.
-    // Logged-in users: the server uses their verified phone and ignores this one.
-    const bookingData = { customerName, customerPhone, items, date, time };
+    // Logged-in users: the server uses their verified email (and saved phone) and ignores these.
+    const bookingData = { customerName, customerPhone, customerEmail, items, date, time };
 
     try {
       const res = await fetch('/api/bookings', {
@@ -107,27 +111,45 @@ function PaymentContent() {
               </div>
               <div>
                 <label className="block text-sm font-bold mb-2 text-foreground">Утасны дугаар</label>
+                {savedPhone ? (
+                  <div className="w-full border border-border rounded-md p-3 bg-muted text-foreground">
+                    +976 {formatPhone(savedPhone)}
+                  </div>
+                ) : (
+                  <div className="w-full flex items-center rounded-md border border-border bg-background focus-within:ring-2 focus-within:ring-primary">
+                    <span className="pl-3 pr-2 text-muted-foreground font-semibold border-r border-border">+976</span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={12}
+                      placeholder="9911 2233"
+                      className="flex-1 min-w-0 p-3 bg-transparent outline-none tracking-wider"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2 text-foreground">Имэйл</label>
                 {loggedIn ? (
-                  <div className="w-full border border-border rounded-md p-3 bg-muted text-foreground flex items-center justify-between">
-                    <span>+976 {formatPhone(customerPhone)}</span>
-                    <span className="text-xs font-semibold text-emerald-700">✓ Баталгаажсан</span>
+                  <div className="w-full border border-border rounded-md p-3 bg-muted text-foreground flex items-center justify-between gap-3">
+                    <span className="truncate">{customerEmail}</span>
+                    <span className="text-xs font-semibold text-emerald-700 shrink-0">✓ Баталгаажсан</span>
                   </div>
                 ) : (
                   <>
-                    <div className="w-full flex items-center rounded-md border border-border bg-background focus-within:ring-2 focus-within:ring-primary">
-                      <span className="pl-3 pr-2 text-muted-foreground font-semibold border-r border-border">+976</span>
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        maxLength={12}
-                        placeholder="9911 2233"
-                        className="flex-1 min-w-0 p-3 bg-transparent outline-none tracking-wider"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(e.target.value)}
-                      />
-                    </div>
+                    <input
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      placeholder="name@gmail.com"
+                      className="w-full border border-border rounded-md p-3 bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                    />
                     <p className="text-xs text-muted-foreground mt-2">
-                      Энэ дугаараараа дараа нэвтэрч захиалга, Loyalty эрхээ хянах боломжтой.
+                      Энэ имэйлээрээ дараа нэвтэрч захиалга, Loyalty эрхээ хянах боломжтой.
                     </p>
                   </>
                 )}

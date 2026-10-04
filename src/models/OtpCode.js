@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 
-// One-time SMS login code. Only a hash of the code is stored.
+// One-time email login code. Only a hash of the code is stored.
 const OtpCodeSchema = new mongoose.Schema(
   {
-    phone: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true },
     codeHash: { type: String, required: true },
     attempts: { type: Number, default: 0 },
     expiresAt: { type: Date, required: true },

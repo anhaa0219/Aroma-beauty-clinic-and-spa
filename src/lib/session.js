@@ -1,4 +1,4 @@
-// Customer login session: a signed cookie holding the user's id and phone.
+// Customer login session: a signed cookie holding the user's id and (verified) email.
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 
@@ -14,8 +14,8 @@ function secret() {
 
 const hmac = (data) => crypto.createHmac('sha256', secret()).update(data).digest('base64url');
 
-// Hash of an SMS code, so codes are never stored in plain text
-export const hashCode = (phone, code) => hmac(`otp:${phone}:${code}`);
+// Hash of a login code, so codes are never stored in plain text
+export const hashCode = (email, code) => hmac(`otp:${email}:${code}`);
 
 export function safeEqual(a, b) {
   const x = Buffer.from(a);
@@ -25,7 +25,7 @@ export function safeEqual(a, b) {
 
 export async function setSession(user) {
   const payload = Buffer.from(
-    JSON.stringify({ uid: String(user._id), phone: user.phone, exp: Date.now() + MAX_AGE_SECONDS * 1000 })
+    JSON.stringify({ uid: String(user._id), email: user.email, exp: Date.now() + MAX_AGE_SECONDS * 1000 })
   ).toString('base64url');
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, `${payload}.${hmac(payload)}`, {
@@ -42,7 +42,7 @@ export async function clearSession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-// { uid, phone } of the logged-in customer, or null
+// { uid, email } of the logged-in customer, or null
 export async function getSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
@@ -51,7 +51,7 @@ export async function getSession() {
   if (!payload || !signature || !safeEqual(signature, hmac(payload))) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return data.exp > Date.now() ? { uid: data.uid, phone: data.phone } : null;
+    return data.exp > Date.now() && data.email ? { uid: data.uid, email: data.email } : null;
   } catch {
     return null;
   }

@@ -2,27 +2,28 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Crown, MessageSquareText, Smartphone } from 'lucide-react';
+import { ArrowLeft, Crown, Mail, MailOpen } from 'lucide-react';
 import { notifyAuthChanged } from '@/hooks/useCustomer';
-import { formatPhone, normalizePhone } from '@/lib/loyalty';
+import { normalizeEmail } from '@/lib/loyalty';
 
-// Only allow redirects back into this site
-const safeNext = (next) => (next && next.startsWith('/') && !next.startsWith('//') ? next : '/account');
+// Only allow redirects back into this site (no "//host" or "/\host" tricks)
+const safeNext = (next) =>
+  next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/account';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get('next'));
 
-  const [step, setStep] = useState('phone'); // 'phone' | 'code'
-  const [phoneInput, setPhoneInput] = useState('');
+  const [step, setStep] = useState('email'); // 'email' | 'code'
+  const [emailInput, setEmailInput] = useState('');
   const [code, setCode] = useState('');
   const [devCode, setDevCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  const phone = normalizePhone(phoneInput);
+  const email = normalizeEmail(emailInput);
 
   // Countdown for "send again"
   useEffect(() => {
@@ -32,14 +33,14 @@ function LoginContent() {
   }, [cooldown]);
 
   const sendCode = async () => {
-    if (!phone || busy) return;
+    if (!email || busy) return;
     setBusy(true);
     setError('');
     try {
       const res = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (data.success) {
@@ -69,12 +70,13 @@ function LoginContent() {
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: value }),
+        body: JSON.stringify({ email, code: value }),
       });
       const data = await res.json();
       if (data.success) {
         notifyAuthChanged();
-        router.replace(next);
+        // New customers add their name + phone once, then continue where they were going
+        router.replace(data.needsProfile ? `/account?next=${encodeURIComponent(next)}` : next);
       } else {
         setError(data.error);
         setCode('');
@@ -94,19 +96,23 @@ function LoginContent() {
       <div className="relative w-full max-w-md bg-card/80 backdrop-blur-xl border border-border rounded-3xl shadow-2xl p-8 md:p-10">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
-            {step === 'phone' ? <Smartphone className="w-8 h-8" /> : <MessageSquareText className="w-8 h-8" />}
+            {step === 'email' ? <Mail className="w-8 h-8" /> : <MailOpen className="w-8 h-8" />}
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
-            {step === 'phone' ? 'Нэвтрэх' : 'Код оруулах'}
+            {step === 'email' ? 'Нэвтрэх' : 'Код оруулах'}
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            {step === 'phone'
-              ? 'Утасны дугаараараа нэвтэрч захиалга, Loyalty Member эрхээ хянаарай'
-              : `${formatPhone(phone)} дугаарт илгээсэн 6 оронтой кодыг оруулна уу`}
+            {step === 'email' ? (
+              'Имэйл хаяг руу тань нэг удаагийн код очно'
+            ) : (
+              <>
+                <b className="text-foreground">{email}</b> хаяг руу илгээсэн 6 оронтой кодыг оруулна уу
+              </>
+            )}
           </p>
         </div>
 
-        {step === 'phone' ? (
+        {step === 'email' ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -115,26 +121,22 @@ function LoginContent() {
             className="space-y-5"
           >
             <label className="block">
-              <span className="block text-sm font-semibold text-foreground mb-2 ml-1">Утасны дугаар</span>
-              <div className="flex items-center rounded-2xl bg-background border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                <span className="pl-5 pr-3 text-muted-foreground font-semibold border-r border-border">+976</span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  autoFocus
-                  maxLength={12}
-                  placeholder="9911 2233"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  className="flex-1 min-w-0 px-4 py-3.5 bg-transparent outline-none text-lg tracking-wider"
-                />
-              </div>
+              <span className="block text-sm font-semibold text-foreground mb-2 ml-1">Имэйл хаяг</span>
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoFocus
+                placeholder="name@gmail.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-5 py-3.5 rounded-2xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-lg transition-all"
+              />
             </label>
             {error && <p className="text-sm text-rose-600 font-medium">{error}</p>}
             <button
               type="submit"
-              disabled={!phone || busy}
+              disabled={!email || busy}
               className="w-full py-3.5 rounded-2xl font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:cursor-not-allowed transition-all"
             >
               {busy ? 'Илгээж байна...' : 'Код авах'}
@@ -150,7 +152,7 @@ function LoginContent() {
           >
             {devCode && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center">
-                Туршилтын горим (SMS тохируулаагүй): код <b className="tracking-widest">{devCode}</b>
+                Туршилтын горим (имэйл тохируулаагүй): код <b className="tracking-widest">{devCode}</b>
               </p>
             )}
             <input
@@ -176,16 +178,17 @@ function LoginContent() {
             >
               {busy ? 'Шалгаж байна...' : 'Нэвтрэх'}
             </button>
+            <p className="text-xs text-muted-foreground text-center">Имэйл ирэхгүй бол Spam хавтсаа шалгана уу.</p>
             <div className="flex items-center justify-between text-sm">
               <button
                 type="button"
                 onClick={() => {
-                  setStep('phone');
+                  setStep('email');
                   setError('');
                 }}
                 className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="w-4 h-4" /> Дугаар солих
+                <ArrowLeft className="w-4 h-4" /> Имэйл солих
               </button>
               <button
                 type="button"
