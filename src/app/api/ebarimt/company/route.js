@@ -12,12 +12,9 @@ export async function GET(req) {
     if (!company) {
       return NextResponse.json({ success: false, error: 'Ийм регистртэй байгууллага олдсонгүй' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, register, name: company.name });
-  } catch (error) {
-    console.error('Company lookup error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Татварын системээс шалгаж чадсангүй. Дахин оролдоно уу.' },
-      { status: 502 }
-    );
+    return NextResponse.json({ success: true, register, name: company.name, verified: true });
+  } catch {
+    // Registry unreachable from our server: accept the register; QPay validates it when issuing the receipt
+    return NextResponse.json({ success: true, register, name: '', verified: false });
   }
 }

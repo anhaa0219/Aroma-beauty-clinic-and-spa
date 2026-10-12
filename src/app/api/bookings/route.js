@@ -12,7 +12,8 @@ async function ebarimtChoice(input) {
   const register = typeof input.register === 'string' ? input.register.trim() : '';
   if (!isValidCompanyRegister(register)) return { ok: false, error: 'Байгууллагын регистр 7 оронтой байна' };
   const company = await lookupCompany(register).catch(() => undefined);
-  if (company === undefined) return { ok: false, error: 'Татварын системээс шалгаж чадсангүй. Дахин оролдоно уу.' };
+  // Registry unreachable: keep the register without a name (QPay validates it when issuing the receipt)
+  if (company === undefined) return { ok: true, value: { type: 'COMPANY', register } };
   if (!company) return { ok: false, error: 'Ийм регистртэй байгууллага олдсонгүй' };
   return { ok: true, value: { type: 'COMPANY', register, companyName: company.name } };
 }

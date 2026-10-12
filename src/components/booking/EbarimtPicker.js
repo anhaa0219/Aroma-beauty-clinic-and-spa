@@ -27,7 +27,11 @@ export default function EbarimtPicker({ onChange }) {
       try {
         const res = await fetch(`/api/ebarimt/company?register=${clean}`, { signal: controller.signal });
         const data = await res.json();
-        setLookup(data.success ? { register: clean, name: data.name } : { register: clean, error: data.error });
+        setLookup(
+          data.success
+            ? { register: clean, name: data.name, verified: data.verified !== false }
+            : { register: clean, error: data.error }
+        );
       } catch (err) {
         if (err.name !== 'AbortError') setLookup({ register: clean, error: 'Сүлжээний алдаа' });
       }
@@ -42,8 +46,8 @@ export default function EbarimtPicker({ onChange }) {
   const value =
     type === 'CITIZEN'
       ? 'CITIZEN'
-      : result?.name
-        ? `COMPANY:${clean}:${result.name}`
+      : result && !result.error
+        ? `COMPANY:${clean}:${result.name || ''}`
         : '';
   useEffect(() => {
     if (!value) onChange(null);
@@ -99,6 +103,11 @@ export default function EbarimtPicker({ onChange }) {
             {result?.name && (
               <span className="flex items-center gap-2 font-semibold text-emerald-700">
                 <CheckCircle2 className="w-4 h-4" /> {result.name}
+              </span>
+            )}
+            {result && !result.error && !result.name && (
+              <span className="flex items-center gap-2 font-semibold text-emerald-700">
+                <CheckCircle2 className="w-4 h-4" /> Регистр {result.register} — и-баримт энэ дугаар дээр гарна
               </span>
             )}
             {result?.error && <span className="text-rose-600 font-medium">{result.error}</span>}

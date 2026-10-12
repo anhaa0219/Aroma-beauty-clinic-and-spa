@@ -153,18 +153,41 @@ export async function createEbarimt({ paymentId, receiverType, receiver }) {
   return { id: data.id, qrData: data.ebarimt_qr_data, lottery: data.ebarimt_lottery };
 }
 
+const getJson = async (url) => {
+  const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(`${new URL(url).host} ${res.status}`);
+  return res.json();
+};
+
+// Two public registries of the tax authority; they may refuse requests from servers outside Mongolia
+const COMPANY_LOOKUPS = [
+  async (register) => {
+    const data = await getJson(`https://info.ebarimt.mn/rest/merchant/info?regno=${register}`);
+    return data.found && data.name ? { name: String(data.name).trim() } : null;
+  },
+  async (register) => {
+    const tin = await getJson(`https://api.ebarimt.mn/api/info/check/getTinInfo?regNo=${register}`);
+    if (tin.status !== 200 || !tin.data) return null; // "not found" answer
+    const info = await getJson(`https://api.ebarimt.mn/api/info/check/getInfo?tin=${tin.data}`);
+    return info.data?.found && info.data.name ? { name: String(info.data.name).trim() } : null;
+  },
+];
+
 /**
  * Look up a company by its 7-digit register number in the tax authority's public registry.
- * Returns { name, vatPayer } or null when no such company exists.
+ * Returns { name } when found, null when it doesn't exist; throws when no registry can be reached.
  */
 export async function lookupCompany(register) {
-  const res = await fetch(`https://info.ebarimt.mn/rest/merchant/info?regno=${encodeURIComponent(register)}`, {
-    cache: 'no-store',
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) throw new Error(`eBarimt lookup failed (${res.status})`);
-  const data = await res.json();
-  return data.found && data.name ? { name: String(data.name).trim(), vatPayer: !!data.vatpayer } : null;
+  let lastError;
+  for (const lookup of COMPANY_LOOKUPS) {
+    try {
+      return await lookup(register);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  console.error('Company lookup unreachable:', lastError?.message);
+  throw new Error('Tax registry unreachable');
 }
 
 export const isValidCompanyRegister = (value) => typeof value === 'string' && /^\d{7}$/.test(value.trim());

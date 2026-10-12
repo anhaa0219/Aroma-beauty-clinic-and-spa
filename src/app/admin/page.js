@@ -189,7 +189,7 @@ function BookingRow({ booking, loyalty, now, showDate, onStatus, onComplete }) {
           <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
             {booking.ebarimt.type === 'COMPANY' ? (
               <span className="inline-flex items-center gap-1 font-semibold text-primary">
-                <Building2 className="w-3 h-3" /> {booking.ebarimt.companyName} ({booking.ebarimt.register})
+                <Building2 className="w-3 h-3" /> {booking.ebarimt.companyName || 'Байгууллага'} ({booking.ebarimt.register})
               </span>
             ) : (
               <span>И-баримт: хувь хүн</span>

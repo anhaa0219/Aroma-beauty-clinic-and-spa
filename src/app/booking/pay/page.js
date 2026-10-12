@@ -68,7 +68,7 @@ function PayContent() {
           </p>
           {booking.ebarimt?.type === 'COMPANY' && (
             <p className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
-              <Building2 className="w-3.5 h-3.5" /> И-баримт: {booking.ebarimt.companyName}
+              <Building2 className="w-3.5 h-3.5" /> И-баримт: {booking.ebarimt.companyName || `Байгууллага ${booking.ebarimt.register}`}
             </p>
           )}
         </div>

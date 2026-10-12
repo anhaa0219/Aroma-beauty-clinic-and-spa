@@ -28,7 +28,7 @@ export default function EbarimtReceipt({ ebarimt, payment }) {
         <Receipt className="w-4 h-4 text-primary" /> И-баримт
         {ebarimt.type === 'COMPANY' && (
           <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary">
-            <Building2 className="w-3.5 h-3.5" /> {ebarimt.companyName} ({ebarimt.register})
+            <Building2 className="w-3.5 h-3.5" /> {ebarimt.companyName || 'Байгууллага'} ({ebarimt.register})
           </span>
         )}
       </p>
