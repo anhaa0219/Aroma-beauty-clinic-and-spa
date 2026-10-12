@@ -6,9 +6,18 @@ import OtpCode from '@/models/OtpCode';
 import { hashCode } from '@/lib/session';
 import { isMailConfigured, loginCodeEmail, sendEmail } from '@/lib/mailer';
 import { normalizeEmail } from '@/lib/loyalty';
+import { hit, visitorKey } from '@/lib/rateLimit';
 
 const CODE_TTL_MS = 5 * 60 * 1000; // Code valid for 5 minutes
 const RESEND_AFTER_MS = 60 * 1000; // One email per minute per address
+
+// Protects the email quota (Resend free plan: 100/day, 3,000/month) from someone requesting codes
+// for many different addresses: per visitor (IP) and for the whole site per day.
+const IP_LIMITS = [
+  { name: 'login-ip-10m', limit: 5, windowSeconds: 10 * 60 },
+  { name: 'login-ip-day', limit: 20, windowSeconds: 24 * 60 * 60 },
+];
+const SITE_DAILY_LIMIT = 90;
 
 // POST { email } → emails a 6-digit login code
 export async function POST(req) {
@@ -27,6 +36,18 @@ export async function POST(req) {
       return NextResponse.json(
         { success: false, error: `${Math.ceil(waitMs / 1000)} секундын дараа дахин оролдоно уу`, retryAfter: Math.ceil(waitMs / 1000) },
         { status: 429 }
+      );
+    }
+
+    const visitor = await visitorKey();
+    const limited = await hit([
+      ...IP_LIMITS.map((r) => ({ key: `${r.name}:${visitor}`, limit: r.limit, windowSeconds: r.windowSeconds })),
+      { key: 'login-site-day', limit: SITE_DAILY_LIMIT, windowSeconds: 24 * 60 * 60 },
+    ]);
+    if (!limited.ok) {
+      return NextResponse.json(
+        { success: false, error: 'Хэт олон код хүссэн байна. Түр хүлээгээд дахин оролдоно уу.' },
+        { status: 429, headers: { 'Retry-After': String(limited.retryAfter) } }
       );
     }
 
