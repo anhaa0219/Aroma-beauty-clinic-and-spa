@@ -103,11 +103,32 @@ export async function getOrCreateInvoice({ orderId, token }) {
   };
 }
 
+// QPay asks merchants to verify payments after their callback, not by constant polling.
+// The browser polls OUR server every few seconds (a cheap DB read); QPay itself is asked only
+//   - when its callback arrives, or the hold runs out (always),
+//   - when the customer presses "Төлбөр шалгах" (at most every 5 s),
+//   - as a safety net in case the callback is lost (at most every 30 s).
+const FORCED_CHECK_GAP_MS = 5_000;
+const SAFETY_CHECK_GAP_MS = 30_000;
+
+// Claims the right to call QPay now (atomic, so parallel requests don't all hit QPay)
+async function claimQpayCheck(orderId, gapMs) {
+  const now = new Date();
+  const claimed = await Booking.updateOne(
+    {
+      orderId,
+      $or: [{ 'payment.checkedAt': { $exists: false } }, { 'payment.checkedAt': { $lte: new Date(now - gapMs) } }],
+    },
+    { $set: { 'payment.checkedAt': now } }
+  );
+  return claimed.modifiedCount === 1;
+}
+
 /**
- * Ask QPay whether the booking's invoice is paid; if so, confirm the booking and issue the eBarimt.
- * Used by the browser (polling), by QPay's callback, and by the dev-only simulated payment.
+ * Is the booking's invoice paid? If so, confirm the booking and issue the eBarimt.
+ * source: 'callback' (QPay told us) | 'manual' (customer pressed check) | 'poll' (browser background)
  */
-export async function settlePayment({ orderId, token, simulate = false }) {
+export async function settlePayment({ orderId, token, simulate = false, source = 'callback' }) {
   if (!validToken(orderId, token)) return fail(404, 'Захиалга олдсонгүй');
   await connectToDatabase();
   let booking = await Booking.findOne({ orderId }).lean();
@@ -119,7 +140,12 @@ export async function settlePayment({ orderId, token, simulate = false }) {
       if (process.env.NODE_ENV === 'production' || !isQpaySandbox()) return fail(403, 'Not allowed');
       paid = { paymentId: `SANDBOX-${Date.now()}`, amount: booking.price, paidAt: new Date(), simulated: true };
     } else {
-      paid = await findPaidPayment(booking.payment.invoiceId);
+      const holdOver = new Date(booking.holdUntil) <= new Date();
+      const askQpay =
+        source === 'callback' ||
+        holdOver ||
+        (await claimQpayCheck(orderId, source === 'manual' ? FORCED_CHECK_GAP_MS : SAFETY_CHECK_GAP_MS));
+      if (askQpay) paid = await findPaidPayment(booking.payment.invoiceId);
     }
 
     if (paid && paid.amount >= booking.price) {

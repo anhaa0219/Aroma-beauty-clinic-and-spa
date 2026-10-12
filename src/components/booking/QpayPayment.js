@@ -66,7 +66,7 @@ export default function QpayPayment({ orderId, token, onPaid, onRestart }) {
         const res = await fetch('/api/payments/qpay/check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, token, simulate }),
+          body: JSON.stringify({ orderId, token, simulate, manual }),
         });
         const data = await res.json();
         if (data.paid) {

@@ -33,6 +33,7 @@ const BookingPaymentSchema = new mongoose.Schema(
     paymentId: { type: String },
     paidAmount: { type: Number },
     paidAt: { type: Date },
+    checkedAt: { type: Date }, // Last time QPay was asked about this invoice (throttles checks)
     paidLate: { type: Boolean }, // Paid after the 15-min hold ran out — the admin should double-check the slot
     simulated: { type: Boolean }, // Test payment in the QPay sandbox (development only)
   },
