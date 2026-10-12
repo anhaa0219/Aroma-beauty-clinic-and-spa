@@ -21,6 +21,40 @@ const BookingWorkerSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Online payment through QPay (the amount is always the booking's own price)
+const BookingPaymentSchema = new mongoose.Schema(
+  {
+    method: { type: String, default: 'qpay' },
+    status: { type: String, enum: ['unpaid', 'paid'], default: 'unpaid' },
+    invoiceId: { type: String },
+    qrText: { type: String },
+    shortUrl: { type: String },
+    urls: { type: [{ _id: false, name: String, description: String, logo: String, link: String }], default: undefined },
+    paymentId: { type: String },
+    paidAmount: { type: Number },
+    paidAt: { type: Date },
+    paidLate: { type: Boolean }, // Paid after the 15-min hold ran out — the admin should double-check the slot
+    simulated: { type: Boolean }, // Test payment in the QPay sandbox (development only)
+  },
+  { _id: false }
+);
+
+// Tax receipt (eBarimt 3.0), issued through QPay once the payment is received
+const BookingEbarimtSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ['CITIZEN', 'COMPANY'], default: 'CITIZEN' },
+    register: { type: String }, // Company register number (COMPANY only)
+    companyName: { type: String }, // From the tax authority's registry, not typed by the customer
+    status: { type: String, enum: ['pending', 'issuing', 'issued', 'failed'], default: 'pending' },
+    receiptId: { type: String },
+    qrData: { type: String },
+    lottery: { type: String },
+    issuedAt: { type: Date },
+    error: { type: String },
+  },
+  { _id: false }
+);
+
 const BookingSchema = new mongoose.Schema(
   {
     orderId: { type: String, required: true, unique: true },
@@ -47,11 +81,16 @@ const BookingSchema = new mongoose.Schema(
     endTime: { type: String }, // Format: HH:MM (time + durationMinutes)
     durationMinutes: { type: Number }, // Longest treatment in the order
     price: { type: Number, required: true }, // Order total
+    // AwaitingPayment: online booking holding its slot until holdUntil while the customer pays.
+    // Once paid it becomes Pending (the admin's usual flow); unpaid holds turn Expired.
     status: {
       type: String,
-      enum: ['Pending', 'Confirmed', 'Paid', 'Completed', 'Cancelled'],
+      enum: ['AwaitingPayment', 'Pending', 'Confirmed', 'Paid', 'Completed', 'Cancelled', 'Expired'],
       default: 'Pending',
     },
+    holdUntil: { type: Date },
+    payment: { type: BookingPaymentSchema, default: undefined },
+    ebarimt: { type: BookingEbarimtSchema, default: undefined },
   },
   { timestamps: true }
 );
@@ -62,6 +101,7 @@ BookingSchema.index({ date: 1, status: 1 });
 BookingSchema.index({ customerEmail: 1 });
 BookingSchema.index({ userId: 1 });
 BookingSchema.index({ customerPhone: 1 });
+BookingSchema.index({ status: 1, holdUntil: 1 });
 
 // Re-register on reload so schema edits apply in `next dev`
 // (reusing mongoose.models.Booking kept the old schema that required staffId/staffName)

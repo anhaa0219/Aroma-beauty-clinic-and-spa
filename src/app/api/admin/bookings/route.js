@@ -4,6 +4,7 @@ import Booking from '@/models/Booking';
 import { createBooking } from '@/lib/bookingService';
 import { SLOT_MINUTES } from '@/lib/schedule';
 import { staffList } from '@/lib/data';
+import { expireStaleHolds } from '@/lib/paymentService';
 
 // The three states the admin works with
 const ADMIN_STATUSES = ['Pending', 'Completed', 'Cancelled'];
@@ -12,8 +13,12 @@ const ADMIN_STATUSES = ['Pending', 'Completed', 'Cancelled'];
 export async function GET() {
   try {
     await connectToDatabase();
-    // Fetch all bookings, sorted by most recently created
-    const bookings = await Booking.find({}).sort({ createdAt: -1 }).lean();
+    await expireStaleHolds().catch((e) => console.error('Expire holds error:', e));
+    // All bookings, newest first. Online checkouts that were never paid (Expired) are left out.
+    const bookings = await Booking.find({ status: { $ne: 'Expired' } })
+      .select('-payment.qrText -payment.urls -ebarimt.qrData')
+      .sort({ createdAt: -1 })
+      .lean();
     
     return NextResponse.json({ success: true, data: bookings }, { status: 200 });
   } catch (error) {

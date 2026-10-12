@@ -2,8 +2,9 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Calendar, CheckCircle2, Clock, Home, MapPin, Phone, Sparkles, User, Users } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CheckCircle2, Clock, Home, MapPin, Phone, Sparkles, User, Users } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
+import EbarimtReceipt from '@/components/booking/EbarimtReceipt';
 import { salonInfo } from '@/lib/data';
 import { formatDateMn, formatMoney } from '@/lib/formatters';
 
@@ -142,9 +143,18 @@ function SuccessContent() {
           </div>
 
           <div className="flex items-center justify-between border-t border-border pt-5">
-            <span className="text-muted-foreground">Нийт дүн</span>
+            <span className="text-muted-foreground flex items-center gap-2">
+              Нийт дүн
+              {booking.payment?.status === 'paid' && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  <BadgeCheck className="w-3.5 h-3.5" /> Төлөгдсөн
+                </span>
+              )}
+            </span>
             <span className="text-2xl font-extrabold text-primary">{formatMoney(booking.price)}</span>
           </div>
+
+          <EbarimtReceipt ebarimt={booking.ebarimt} payment={booking.payment} />
 
           {/* Location */}
           <div className="rounded-2xl bg-muted/50 border border-border p-4 space-y-2 text-sm">

@@ -17,6 +17,10 @@ const hmac = (data) => crypto.createHmac('sha256', secret()).update(data).digest
 // Hash of a login code, so codes are never stored in plain text
 export const hashCode = (email, code) => hmac(`otp:${email}:${code}`);
 
+// Proves the browser that created a booking may pay for it / see its payment status
+// (guests have no login, and order IDs alone are guessable)
+export const paymentToken = (orderId) => hmac(`pay:${orderId}`);
+
 export function safeEqual(a, b) {
   const x = Buffer.from(a);
   const y = Buffer.from(b);

@@ -6,6 +6,8 @@ import Image from 'next/image';
 import {
   Activity,
   AlertTriangle,
+  BadgeCheck,
+  Building2,
   CalendarClock,
   Check,
   Crown,
@@ -59,6 +61,7 @@ const SOURCES = {
 };
 
 const STATUS = {
+  AwaitingPayment: { label: 'Төлбөр хүлээж буй', cls: 'bg-amber-100 text-amber-800' },
   Pending: { label: 'Хүлээгдэж буй', cls: 'bg-sky-100 text-sky-700' },
   Confirmed: { label: 'Хүлээгдэж буй', cls: 'bg-sky-100 text-sky-700' },
   Paid: { label: 'Хүлээгдэж буй', cls: 'bg-sky-100 text-sky-700' },
@@ -173,7 +176,35 @@ function BookingRow({ booking, loyalty, now, showDate, onStatus, onComplete }) {
           </span>
           <span>{booking.durationMinutes ? `${booking.durationMinutes} мин` : ''}</span>
           <span className="font-bold text-foreground">{formatMoney(booking.price)}</span>
+          {booking.payment?.status === 'paid' && (
+            <span
+              title={booking.payment.paidAt ? `Төлсөн: ${new Date(booking.payment.paidAt).toLocaleString()}` : ''}
+              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"
+            >
+              <BadgeCheck className="w-3 h-3" /> QPay төлсөн{booking.payment.simulated ? ' (тест)' : ''}
+            </span>
+          )}
         </p>
+        {booking.ebarimt && booking.payment?.status === 'paid' && (
+          <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
+            {booking.ebarimt.type === 'COMPANY' ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                <Building2 className="w-3 h-3" /> {booking.ebarimt.companyName} ({booking.ebarimt.register})
+              </span>
+            ) : (
+              <span>И-баримт: хувь хүн</span>
+            )}
+            {booking.ebarimt.status === 'issued' && <span className="text-emerald-700 font-semibold">· гарсан</span>}
+            {booking.ebarimt.status === 'failed' && (
+              <span className="text-rose-600 font-semibold" title={booking.ebarimt.error}>· и-баримт гараагүй</span>
+            )}
+          </p>
+        )}
+        {booking.payment?.paidLate && (
+          <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> Хугацаа дууссаны дараа төлсөн — цагийг шалгана уу
+          </p>
+        )}
         {booking.note && (
           <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
             <StickyNote className="w-3.5 h-3.5" /> {booking.note}
@@ -207,7 +238,15 @@ function BookingRow({ booking, loyalty, now, showDate, onStatus, onComplete }) {
               <Check className="w-4 h-4" /> Дуусгах
             </button>
             <button
-              onClick={() => onStatus(booking.orderId, 'Cancelled')}
+              onClick={() => {
+                if (
+                  booking.payment?.status === 'paid' &&
+                  !confirm('Энэ захиалгыг QPay-ээр төлсөн. Цуцалбал мөнгийг гараар буцаан олгох шаардлагатай. Цуцлах уу?')
+                ) {
+                  return;
+                }
+                onStatus(booking.orderId, 'Cancelled');
+              }}
               title="Цуцлах"
               aria-label="Cancel booking"
               className="w-9 h-9 rounded-xl flex items-center justify-center bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
@@ -216,7 +255,7 @@ function BookingRow({ booking, loyalty, now, showDate, onStatus, onComplete }) {
             </button>
           </>
         )}
-        {!isActive && (
+        {!isActive && booking.status !== 'AwaitingPayment' && (
           <button
             onClick={() => onStatus(booking.orderId, 'Pending')}
             title="Хүлээгдэж буй руу буцаах"

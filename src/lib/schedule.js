@@ -8,6 +8,8 @@ export const SLOT_MINUTES = 30;
 export const WORKER_COUNT = 5; // How many clients can be served at the same time
 // Bookings that occupy workers (Completed frees the worker, e.g. when a treatment ends early)
 export const ACTIVE_STATUSES = ['Confirmed', 'Paid', 'Pending'];
+// An online booking holds its workers this long while the customer pays (status AwaitingPayment)
+export const PAYMENT_HOLD_MINUTES = 15;
 export const BOOKING_WINDOW_DAYS = 60; // How far ahead customers may book
 export const SALON_TIMEZONE = 'Asia/Ulaanbaatar';
 export const DEFAULT_DURATION = 60; // Fallback for old bookings / unknown services

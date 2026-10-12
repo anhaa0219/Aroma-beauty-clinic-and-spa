@@ -11,8 +11,9 @@ const unauthorized = () => NextResponse.json({ success: false, error: 'Not logge
 // A customer's bookings: made while logged in (userId), or as a guest with their verified email.
 // The phone is NOT used here — it isn't verified, so matching on it would leak other people's history.
 const bookingsOfUser = (user) =>
-  Booking.find({ $or: [{ userId: user._id }, { customerEmail: user.email }] })
-    .select('-__v -note') // the admin's internal note stays internal
+  Booking.find({ $or: [{ userId: user._id }, { customerEmail: user.email }], status: { $ne: 'Expired' } })
+    // the admin's internal note stays internal; payment internals aren't needed
+    .select('-__v -note -payment.qrText -payment.urls -payment.invoiceId -payment.paymentId')
     .sort({ date: -1, time: -1 })
     .lean();
 

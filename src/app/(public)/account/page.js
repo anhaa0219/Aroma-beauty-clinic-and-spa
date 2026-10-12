@@ -10,6 +10,7 @@ import { formatDateMn, formatMoney } from '@/lib/formatters';
 import { ACTIVE_STATUSES, salonNow } from '@/lib/schedule';
 
 const STATUS = {
+  AwaitingPayment: { label: 'Төлбөр хүлээж буй', cls: 'bg-amber-100 text-amber-800' },
   Confirmed: { label: 'Баталгаажсан', cls: 'bg-emerald-100 text-emerald-700' },
   Paid: { label: 'Төлсөн', cls: 'bg-emerald-100 text-emerald-700' },
   Pending: { label: 'Хүлээгдэж буй', cls: 'bg-yellow-100 text-yellow-800' },
@@ -18,7 +19,9 @@ const STATUS = {
 };
 
 function BookingItem({ booking }) {
-  const status = STATUS[booking.status] || STATUS.Pending;
+  // A booking paid online is shown as paid until the visit is completed
+  const paidAhead = booking.status === 'Pending' && booking.payment?.status === 'paid';
+  const status = paidAhead ? STATUS.Paid : STATUS[booking.status] || STATUS.Pending;
   const counts = COUNTED_STATUSES.includes(booking.status);
   return (
     <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">

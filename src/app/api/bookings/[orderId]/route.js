@@ -21,7 +21,7 @@ export async function GET(req, { params }) {
     }
 
     await connectToDatabase();
-    const booking = await Booking.findOne({ orderId: String(orderId) }).select('-note').lean();
+    const booking = await Booking.findOne({ orderId: String(orderId) }).select('-note -payment.qrText -payment.urls -payment.invoiceId').lean();
 
     // Same 404 whether the booking is missing or just not the viewer's own
     const isOwner =

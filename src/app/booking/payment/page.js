@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
+import EbarimtPicker from '@/components/booking/EbarimtPicker';
 import { describeItems, parseItems, toMinutes, toTime } from '@/lib/schedule';
 import Navbar from '@/components/layout/Navbar';
 import useCustomer from '@/hooks/useCustomer';
@@ -33,16 +34,26 @@ function PaymentContent() {
   // The email links this booking to the customer's account (history + Loyalty Member)
   const customerEmail = loggedIn ? customer.user?.email || '' : normalizeEmail(emailInput);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // { type: 'CITIZEN' } | { type: 'COMPANY', register, companyName } | null (company not confirmed yet)
+  const [ebarimt, setEbarimt] = useState({ type: 'CITIZEN' });
 
-  const canSubmit = !!customerName.trim() && !!customerPhone && !!customerEmail && !isSubmitting;
+  const canSubmit = !!customerName.trim() && !!customerPhone && !!customerEmail && !!ebarimt && !isSubmitting;
 
-  const handleSimulatePayment = async () => {
+  const handlePay = async () => {
     if (!canSubmit) return;
     setIsSubmitting(true);
 
     // Service names, prices and durations are resolved on the server.
     // Logged-in users: the server uses their verified email (and saved phone) and ignores these.
-    const bookingData = { customerName, customerPhone, customerEmail, items, date, time };
+    const bookingData = {
+      customerName,
+      customerPhone,
+      customerEmail,
+      items,
+      date,
+      time,
+      ebarimt: { type: ebarimt.type, register: ebarimt.register },
+    };
 
     try {
       const res = await fetch('/api/bookings', {
@@ -53,13 +64,16 @@ function PaymentContent() {
       const data = await res.json();
 
       if (data.success && data.data?.orderId) {
-        // Keep the booking so guests (not logged in) can view their receipt without a lookup
+        // The slot is now held for 15 minutes. Keep the booking + payment token for the QPay step
+        // (guests aren't logged in, so this is how their browser proves the order is theirs).
         try {
           sessionStorage.setItem(`aroma:booking:${data.data.orderId}`, JSON.stringify(data.data));
+          sessionStorage.setItem(`aroma:pay:${data.data.orderId}`, data.payToken);
         } catch {
-          /* private mode — success page will fall back to the API for logged-in users */
+          alert('Таны хөтөч sessionStorage хаасан байна. Энгийн цонхоор дахин оролдоно уу.');
+          return;
         }
-        router.push(`/booking/success?orderId=${data.data.orderId}`);
+        router.push(`/booking/pay?orderId=${encodeURIComponent(data.data.orderId)}`);
       } else {
         alert(data.error || 'Something went wrong with the booking.');
       }
@@ -155,6 +169,10 @@ function PaymentContent() {
                 )}
               </div>
             </div>
+
+            <div className="mt-6">
+              <EbarimtPicker onChange={setEbarimt} />
+            </div>
           </div>
 
           {/* --- 2. ORDER SUMMARY --- */}
@@ -195,7 +213,7 @@ function PaymentContent() {
             </div>
 
             <button
-              onClick={handleSimulatePayment}
+              onClick={handlePay}
               disabled={!canSubmit}
               className={`w-full py-4 rounded-md text-lg font-bold transition-all shadow-md ${
                 canSubmit
@@ -203,11 +221,11 @@ function PaymentContent() {
                   : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'
               }`}
             >
-              {isSubmitting ? 'Түр хүлээнэ үү...' : 'Захиалга баталгаажуулах'}
+              {isSubmitting ? 'Түр хүлээнэ үү...' : 'QPay-ээр төлөх'}
             </button>
-            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-3">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Нэвтрэхгүйгээр захиалах боломжтой
+            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-3 text-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              Нэвтрэхгүйгээр захиална. Таны цагийг 15 минут барьж байх хооронд төлбөрөө төлнө.
             </p>
           </div>
         </div>
